@@ -13,3 +13,24 @@ server:
   admin_allow_cidrs:
     - 127.0.0.0/8
     - ::1/128
+
+trading:
+  enabled: false
+  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, ADAUSDT, TONUSDT, DOGEUSDT]
+  min_net_bps: 5
+  notional_usd: 100
+  fees_bps:
+    binance: 7.5
+    kraken: 10
+  slippage_bps: 1
+  risk_reserve_bps: 0.5
+
+exchanges:
+  binance:
+    base_url: https://api.binance.com
+    api_key: ""
+    secret: ""
+  kraken:
+    base_url: https://api.kraken.com
+    api_key: ""
+    secret: ""

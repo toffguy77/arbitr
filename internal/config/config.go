@@ -23,6 +23,27 @@ type Config struct {
 		IdleTimeoutSeconds  int `yaml:"idle_timeout_seconds"`
 		AdminAllowCIDRs     []string `yaml:"admin_allow_cidrs"`
 	} `yaml:"server"`
+	Trading struct {
+		Enabled bool    `yaml:"enabled"`
+		Pairs   []string `yaml:"pairs"`
+		MinNetBps float64 `yaml:"min_net_bps"`
+		NotionalUSD float64 `yaml:"notional_usd"`
+		FeesBps map[string]float64 `yaml:"fees_bps"`
+		SlippageBps float64 `yaml:"slippage_bps"`
+		RiskReserveBps float64 `yaml:"risk_reserve_bps"`
+	} `yaml:"trading"`
+	Exchanges struct {
+		Binance struct {
+			BaseURL string `yaml:"base_url"`
+			APIKey  string `yaml:"api_key"`
+			Secret  string `yaml:"secret"`
+		} `yaml:"binance"`
+		Kraken struct {
+			BaseURL string `yaml:"base_url"`
+			APIKey  string `yaml:"api_key"`
+			Secret  string `yaml:"secret"`
+		} `yaml:"kraken"`
+	} `yaml:"exchanges"`
 }
 
 func defaultConfig() Config {
@@ -37,6 +58,15 @@ func defaultConfig() Config {
 	c.Server.WriteTimeoutSeconds = 10
 	c.Server.IdleTimeoutSeconds = 60
 	c.Server.AdminAllowCIDRs = []string{"127.0.0.0/8", "::1/128"}
+	c.Trading.Enabled = false
+	c.Trading.Pairs = []string{"BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","ADAUSDT","TONUSDT","DOGEUSDT"}
+	c.Trading.MinNetBps = 5.0
+	c.Trading.NotionalUSD = 100.0
+	c.Trading.FeesBps = map[string]float64{"binance": 7.5, "kraken": 10.0}
+	c.Trading.SlippageBps = 1.0
+	c.Trading.RiskReserveBps = 0.5
+	c.Exchanges.Binance.BaseURL = "https://api.binance.com"
+	c.Exchanges.Kraken.BaseURL = "https://api.kraken.com"
 	return c
 }
 
@@ -52,6 +82,8 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_HTTP_ADDR"); v != "" { c.Server.Addr = v }
 	if v := os.Getenv("ARBITR_PPROF"); v == "1" || v == "true" { c.Server.Pprof = true }
 	if v := os.Getenv("ARBITR_ADMIN_ALLOW_CIDRS"); v != "" { c.Server.AdminAllowCIDRs = splitCSV(v) }
+	if v := os.Getenv("ARBITR_TRADING_ENABLED"); v == "1" || v == "true" { c.Trading.Enabled = true }
+	if v := os.Getenv("ARBITR_TRADING_PAIRS"); v != "" { c.Trading.Pairs = splitCSV(v) }
 	return c
 }
 

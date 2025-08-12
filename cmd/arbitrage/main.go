@@ -10,6 +10,10 @@ import (
 	"time"
 
 	"arbitr/internal/config"
+	"arbitr/internal/arbitrage"
+	"arbitr/internal/exchange/binance"
+	"arbitr/internal/exchange/common"
+	"arbitr/internal/exchange/kraken"
 	"arbitr/internal/infra/health"
 	"arbitr/internal/infra/http/middleware"
 	"arbitr/internal/infra/log"
@@ -64,10 +68,13 @@ func main() {
 
 	// start workers (placeholder) and monitor errors
 	g := &runner.Group{}
+	// arbitrage engine worker
 	workerErrCh := g.Go(ctx, func(ctx context.Context) error {
-		// TODO: replace with real worker startup
-		<-ctx.Done()
-		return nil
+		adapters := map[string]common.ExchangeAdapter{}
+		adapters["binance"] = binance.New(cfg)
+		adapters["kraken"] = kraken.New(cfg)
+		eng := arbitrage.New(cfg, adapters)
+		return eng.Run(ctx)
 	})
 
 	// mark ready after initialization completes
