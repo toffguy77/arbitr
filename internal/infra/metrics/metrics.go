@@ -14,6 +14,9 @@ var (
 	OrderSubmitLatencyMs = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "order_submit_latency_ms", Help: "Order submit latency", Buckets: prometheus.LinearBuckets(1, 10, 20)})
 	ArbOppsFound = prometheus.NewCounter(prometheus.CounterOpts{Name: "arbitrage_opportunities_found"})
 	ArbOppsExecuted = prometheus.NewCounter(prometheus.CounterOpts{Name: "arbitrage_opportunities_executed"})
+	TrianglesCheckedTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "triangles_checked_total", Help: "Total triangles evaluated"})
+	TriangleGrossBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_gross_bps", Help: "Gross bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
+	TriangleNetBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_net_bps", Help: "Net bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
 	FillsSuccessRatio = prometheus.NewGauge(prometheus.GaugeOpts{Name: "fills_success_ratio"})
 	PartialFillRatio = prometheus.NewGauge(prometheus.GaugeOpts{Name: "partial_fill_ratio"})
 	NetProfitBps = prometheus.NewGauge(prometheus.GaugeOpts{Name: "net_profit_bps"})
@@ -37,6 +40,7 @@ func Init(logger zerolog.Logger) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 	toRegister := []prometheus.Collector{
 		DecisionLatencyMs, OrderSubmitLatencyMs, ArbOppsFound, ArbOppsExecuted,
+		TrianglesCheckedTotal, TriangleGrossBps, TriangleNetBps,
 		FillsSuccessRatio, PartialFillRatio, NetProfitBps, NetProfitUSD,
 		GrossSpreadBps, RejectedOrders, WSReconnects, RiskBlocks,
 		BalanceDesyncEvents, SlippageRealizedBps, VaR99Intraday, DrawdownIntradayBps,

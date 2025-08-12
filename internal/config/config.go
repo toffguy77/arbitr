@@ -31,8 +31,14 @@ type Config struct {
 		FeesBps map[string]float64 `yaml:"fees_bps"`
 		SlippageBps float64 `yaml:"slippage_bps"`
 		RiskReserveBps float64 `yaml:"risk_reserve_bps"`
+		Triangles []struct{ AB, BC, CA string } `yaml:"triangles"`
 	} `yaml:"trading"`
 	Exchanges struct {
+		Bybit struct {
+			BaseURL string `yaml:"base_url"`
+			APIKey  string `yaml:"api_key"`
+			Secret  string `yaml:"secret"`
+		} `yaml:"bybit"`
 		Binance struct {
 			BaseURL string `yaml:"base_url"`
 			APIKey  string `yaml:"api_key"`
@@ -59,12 +65,26 @@ func defaultConfig() Config {
 	c.Server.IdleTimeoutSeconds = 60
 	c.Server.AdminAllowCIDRs = []string{"127.0.0.0/8", "::1/128"}
 	c.Trading.Enabled = false
-	c.Trading.Pairs = []string{"BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","ADAUSDT","TONUSDT","DOGEUSDT"}
+	c.Trading.Pairs = []string{"BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","ADAUSDT","DOGEUSDT","LTCUSDT","TRXUSDT","MATICUSDT","DOTUSDT","LINKUSDT"}
 	c.Trading.MinNetBps = 5.0
 	c.Trading.NotionalUSD = 100.0
-	c.Trading.FeesBps = map[string]float64{"binance": 7.5, "kraken": 10.0}
+	c.Trading.FeesBps = map[string]float64{"bybit": 10.0}
 	c.Trading.SlippageBps = 1.0
 	c.Trading.RiskReserveBps = 0.5
+	c.Trading.Triangles = []struct{ AB, BC, CA string }{
+		{AB: "BTCUSDT", BC: "ETHUSDT", CA: "ETHBTC"},
+		{AB: "BTCUSDT", BC: "BNBUSDT", CA: "BNBBTC"},
+		{AB: "BTCUSDT", BC: "SOLUSDT", CA: "SOLBTC"},
+		{AB: "BTCUSDT", BC: "XRPUSDT", CA: "XRPBTC"},
+		{AB: "BTCUSDT", BC: "ADAUSDT", CA: "ADABTC"},
+		{AB: "BTCUSDT", BC: "DOGEUSDT", CA: "DOGEBTC"},
+		{AB: "BTCUSDT", BC: "LTCUSDT", CA: "LTCBTC"},
+		{AB: "BTCUSDT", BC: "TRXUSDT", CA: "TRXBTC"},
+		{AB: "BTCUSDT", BC: "MATICUSDT", CA: "MATICBTC"},
+		{AB: "BTCUSDT", BC: "DOTUSDT", CA: "DOTBTC"},
+		{AB: "BTCUSDT", BC: "LINKUSDT", CA: "LINKBTC"},
+	}
+	c.Exchanges.Bybit.BaseURL = "https://api.bybit.com"
 	c.Exchanges.Binance.BaseURL = "https://api.binance.com"
 	c.Exchanges.Kraken.BaseURL = "https://api.kraken.com"
 	return c
@@ -84,6 +104,7 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_ADMIN_ALLOW_CIDRS"); v != "" { c.Server.AdminAllowCIDRs = splitCSV(v) }
 	if v := os.Getenv("ARBITR_TRADING_ENABLED"); v == "1" || v == "true" { c.Trading.Enabled = true }
 	if v := os.Getenv("ARBITR_TRADING_PAIRS"); v != "" { c.Trading.Pairs = splitCSV(v) }
+	// Triangles via YAML only for now; could add ARBITR_TRADING_TRIANGLES as a CSV of AB|BC|CA items later.
 	return c
 }
 

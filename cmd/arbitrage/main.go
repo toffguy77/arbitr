@@ -11,9 +11,8 @@ import (
 
 	"arbitr/internal/config"
 	"arbitr/internal/arbitrage"
-	"arbitr/internal/exchange/binance"
+	"arbitr/internal/exchange/bybit"
 	"arbitr/internal/exchange/common"
-	"arbitr/internal/exchange/kraken"
 	"arbitr/internal/infra/health"
 	"arbitr/internal/infra/http/middleware"
 	"arbitr/internal/infra/log"
@@ -71,9 +70,8 @@ func main() {
 	// arbitrage engine worker
 	workerErrCh := g.Go(ctx, func(ctx context.Context) error {
 		adapters := map[string]common.ExchangeAdapter{}
-		adapters["binance"] = binance.New(cfg)
-		adapters["kraken"] = kraken.New(cfg)
-		eng := arbitrage.New(cfg, adapters)
+		adapters["bybit"] = bybit.New(cfg)
+		eng := arbitrage.New(cfg, adapters, logger)
 		return eng.Run(ctx)
 	})
 
