@@ -1,0 +1,21 @@
+# Build artifacts
+bin/
+dist/
+*.exe
+*.out
+*.test
+coverage/
+
+# Go modules cache
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Logs
+*.log
+
+# Generated code
+internal/api/grpc/*.pb.go

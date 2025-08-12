@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arbitr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: arbitr
+  template:
+    metadata:
+      labels:
+        app: arbitr
+    spec:
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: arbitr
+          image: arbitr:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9090
+          env:
+            - name: ARBITR_HTTP_ADDR
+              value: ":9090"
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 9090
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

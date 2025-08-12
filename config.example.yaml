@@ -1,0 +1,15 @@
+network:
+  region: EU-West
+  ws_keepalive_seconds: 15
+logging:
+  level: info
+  pretty: false
+server:
+  addr: ":9090"
+  pprof: false
+  read_timeout_seconds: 5
+  write_timeout_seconds: 10
+  idle_timeout_seconds: 60
+  admin_allow_cidrs:
+    - 127.0.0.0/8
+    - ::1/128

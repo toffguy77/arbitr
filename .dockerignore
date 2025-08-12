@@ -1,0 +1,18 @@
+# VCS
+.git
+
+# CI configs (not needed in build context)
+.github
+.gitlab-ci.yml
+
+# Build outputs
+bin
+dist
+coverage
+*.out
+*.test
+
+# IDE
+.vscode
+.idea
+*.iml
