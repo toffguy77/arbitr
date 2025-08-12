@@ -15,6 +15,11 @@ var (
 	ArbOppsFound = prometheus.NewCounter(prometheus.CounterOpts{Name: "arbitrage_opportunities_found"})
 	ArbOppsExecuted = prometheus.NewCounter(prometheus.CounterOpts{Name: "arbitrage_opportunities_executed"})
 	TrianglesCheckedTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "triangles_checked_total", Help: "Total triangles evaluated"})
+	TrianglesAttemptedTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "triangles_attempted_total", Help: "Total triangles attempted"})
+	OrdersSubmittedTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "orders_submitted_total", Help: "Total orders submitted"})
+	OrdersCancelledTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "orders_cancelled_total", Help: "Total orders cancelled"})
+	OrdersFilledTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "orders_filled_total", Help: "Total orders filled (acknowledged)"})
+	APIErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "api_errors_total", Help: "API errors by exchange and endpoint"}, []string{"exchange","endpoint"})
 	TriangleGrossBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_gross_bps", Help: "Gross bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
 	TriangleNetBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_net_bps", Help: "Net bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
 	FillsSuccessRatio = prometheus.NewGauge(prometheus.GaugeOpts{Name: "fills_success_ratio"})
@@ -38,9 +43,10 @@ var (
 
 func Init(logger zerolog.Logger) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
-	toRegister := []prometheus.Collector{
+toRegister := []prometheus.Collector{
 		DecisionLatencyMs, OrderSubmitLatencyMs, ArbOppsFound, ArbOppsExecuted,
-		TrianglesCheckedTotal, TriangleGrossBps, TriangleNetBps,
+		TrianglesCheckedTotal, TrianglesAttemptedTotal, OrdersSubmittedTotal, OrdersCancelledTotal, OrdersFilledTotal, APIErrorsTotal,
+		TriangleGrossBps, TriangleNetBps,
 		FillsSuccessRatio, PartialFillRatio, NetProfitBps, NetProfitUSD,
 		GrossSpreadBps, RejectedOrders, WSReconnects, RiskBlocks,
 		BalanceDesyncEvents, SlippageRealizedBps, VaR99Intraday, DrawdownIntradayBps,

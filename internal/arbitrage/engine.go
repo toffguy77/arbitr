@@ -11,16 +11,15 @@ import (
 	"arbitr/internal/strategy"
 )
 
-type Engine struct {
+	type Engine struct {
 	cfg config.Config
 	adapters map[string]common.ExchangeAdapter
 	logger log.Logger
-	triangles []struct{ AB, BC, CA string }
 	bestCh chan spread
 }
 
 type spread struct {
-	Tri struct{ AB, BC, CA string }
+	Tri config.Triangle
 	Dir string // F or R
 	Gross float64
 	Net float64
@@ -32,7 +31,24 @@ return &Engine{cfg: cfg, adapters: adapters, logger: logger, bestCh: make(chan s
 }
 
 func (e *Engine) Run(ctx context.Context) error {
+	// Log balances at startup if adapters support it
+	for name, ad := range e.adapters {
+		if b, ok := ad.(common.Balancer); ok {
+			ctxTO, cancel := context.WithTimeout(ctx, 5*time.Second)
+			balances, err := b.GetBalances(ctxTO)
+			cancel()
+			if err != nil {
+				e.logger.Debug().Err(err).Str("exchange", name).Msg("failed to fetch balances")
+			} else {
+				for _, bl := range balances {
+					e.logger.Info().Str("exchange", name).Str("asset", bl.Asset).Float64("free", bl.Free).Msg("balance at startup")
+				}
+			}
+		}
+	}
+
 	// one-time: filter triangles by available markets if possible
+	triangles := make([]config.Triangle, 0)
 	by := e.adapters["bybit"]
 	if by != nil {
 		// optional symbol lister
@@ -46,24 +62,32 @@ func (e *Engine) Run(ctx context.Context) error {
 					if _, ok1 := syms[tri.AB]; !ok1 { continue }
 					if _, ok2 := syms[tri.BC]; !ok2 { continue }
 					if _, ok3 := syms[tri.CA]; !ok3 { continue }
-					e.triangles = append(e.triangles, tri)
+					triangles = append(triangles, tri)
 				}
+			} else {
+				e.logger.Debug().Err(err).Msg("failed to list Bybit spot symbols; will skip filtering")
 			}
 		}
 	}
-	if len(e.triangles) == 0 {
-		e.triangles = e.cfg.Trading.Triangles
-		e.logger.Info().Int("configured", len(e.cfg.Trading.Triangles)).Int("available", len(e.triangles)).Msg("triangle filtering skipped (symbols list unavailable)")
-	} else {
+	if len(triangles) == 0 {
+		// Fallback to configured triangles, but drop invalid (empty) ones
+		valid := make([]config.Triangle, 0, len(e.cfg.Trading.Triangles))
+		for _, tri := range e.cfg.Trading.Triangles {
+			if tri.AB == "" || tri.BC == "" || tri.CA == "" { continue }
+			valid = append(valid, tri)
+		}
+		triangles = valid
+		e.logger.Info().Int("configured", len(e.cfg.Trading.Triangles)).Int("available", len(triangles)).Msg("triangle filtering skipped (symbols list unavailable)")
+} else {
 		// Log filtering outcome
-		rejected := len(e.cfg.Trading.Triangles) - len(e.triangles)
-		e.logger.Info().Int("configured", len(e.cfg.Trading.Triangles)).Int("available", len(e.triangles)).Int("rejected", rejected).Msg("triangles filtered by Bybit instruments list")
+		rejected := len(e.cfg.Trading.Triangles) - len(triangles)
+		e.logger.Info().Int("configured", len(e.cfg.Trading.Triangles)).Int("available", len(triangles)).Int("rejected", rejected).Msg("triangles filtered by Bybit instruments list")
 		if rejected > 0 {
 			// Build details for debug
 			missing := []string{}
 			// For simplicity, re-evaluate and log what was missing
 			present := map[string]struct{}{}
-			for _, tri := range e.triangles { present[tri.AB] = struct{}{}; present[tri.BC] = struct{}{}; present[tri.CA] = struct{}{} }
+			for _, tri := range triangles { present[tri.AB] = struct{}{}; present[tri.BC] = struct{}{}; present[tri.CA] = struct{}{} }
 			for _, tri := range e.cfg.Trading.Triangles {
 				count := 0
 				if _, ok := present[tri.AB]; ok { count++ }
@@ -74,6 +98,16 @@ func (e *Engine) Run(ctx context.Context) error {
 				}
 			}
 			e.logger.Debug().Strs("rejected_triangles", missing).Msg("triangles missing one or more markets")
+		}
+		// After triangles prepared, prefetch symbol steps if adapter supports it
+		allSyms := make(map[string]struct{})
+		for _, tri := range triangles { allSyms[tri.AB] = struct{}{}; allSyms[tri.BC] = struct{}{}; allSyms[tri.CA] = struct{}{} }
+		if pf, ok := by.(common.SymbolStepsPrefetcher); ok {
+			slice := make([]string, 0, len(allSyms))
+			for s := range allSyms { slice = append(slice, s) }
+			ctxTO, cancel := context.WithTimeout(ctx, 5*time.Second)
+			_ = pf.PrefetchSymbolSteps(ctxTO, slice)
+			cancel()
 		}
 	}
 
@@ -107,7 +141,7 @@ func (e *Engine) Run(ctx context.Context) error {
 					buf[i], buf[maxIdx] = buf[maxIdx], buf[i]
 				}
 				for i := 0; i < n; i++ {
-					_ = i // Here we would log using a logger; for now expose via metrics gauges if needed or integrate logger into Engine later.
+					_ = i // hook for future logging
 				}
 			}
 		}
@@ -123,8 +157,9 @@ func (e *Engine) Run(ctx context.Context) error {
 			// Intra-exchange (Bybit) triangular scan
 			by := e.adapters["bybit"]
 			if by == nil { continue }
-			for _, tri := range e.triangles {
-				ctxTO, cancel := context.WithTimeout(ctx, 2*time.Second)
+			for _, tri := range triangles {
+				if tri.AB == "" || tri.BC == "" || tri.CA == "" { continue }
+				ctxTO, cancel := context.WithTimeout(ctx, 4*time.Second)
 				tAB, eAB := by.GetTicker(ctxTO, tri.AB)
 				tBC, eBC := by.GetTicker(ctxTO, tri.BC)
 				tCA, eCA := by.GetTicker(ctxTO, tri.CA)
@@ -150,6 +185,16 @@ func (e *Engine) Run(ctx context.Context) error {
 				metrics.TriangleNetBps.Observe(net)
 				if net >= e.cfg.Trading.MinNetBps {
 					metrics.ArbOppsFound.Inc()
+					// Live trading (testnet) - guarded
+					if e.cfg.Trading.Live {
+						if e.allowedForLive(tri) {
+							if id, err := e.placeFirstLeg(ctx, by, tri, tAB, tBC, tCA); err != nil {
+								e.logger.Error().Err(err).Msg("place first leg failed")
+							} else if id != "" {
+								metrics.OrdersSubmittedTotal.Inc()
+							}
+						}
+					}
 					// Paper mode: mark executed
 					metrics.ArbOppsExecuted.Inc()
 					// push to best tracker

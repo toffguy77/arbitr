@@ -70,7 +70,7 @@ func main() {
 	// arbitrage engine worker
 	workerErrCh := g.Go(ctx, func(ctx context.Context) error {
 		adapters := map[string]common.ExchangeAdapter{}
-		adapters["bybit"] = bybit.New(cfg)
+		adapters["bybit"] = bybit.New(cfg, logger)
 		eng := arbitrage.New(cfg, adapters, logger)
 		return eng.Run(ctx)
 	})

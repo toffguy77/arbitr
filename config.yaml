@@ -2,8 +2,8 @@ network:
   region: EU-West
   ws_keepalive_seconds: 15
 logging:
-  level: info
-  pretty: false
+  level: debug
+  pretty: true
 server:
   addr: ":9090"
   pprof: false
@@ -15,24 +15,24 @@ server:
     - ::1/128
 
 trading:
-  enabled: false
-  pairs: [BTCUSDT, ETHUSDT, BNBUSDT, SOLUSDT, XRPUSDT, ADAUSDT, DOGEUSDT, LTCUSDT, TRXUSDT, MATICUSDT, DOTUSDT, LINKUSDT]
+  enabled: true
+  live: true
+  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT]
   min_net_bps: 5
   notional_usd: 100
+  max_notional_usd: 50
+  max_orders_per_min: 10
+  allowed_symbols: []
   fees_bps:
     bybit: 10
   slippage_bps: 1
   risk_reserve_bps: 0.5
+  price_skew_bps: 1.0
   # Triangles must be valid markets on Bybit spot. Below are commonly liquid examples; adjust to real availability on Bybit.
   triangles:
     - { AB: BTCUSDT, BC: ETHUSDT,   CA: ETHBTC }
-    - { AB: BTCUSDT, BC: BNBUSDT,   CA: BNBBTC }
     - { AB: BTCUSDT, BC: SOLUSDT,   CA: SOLBTC }
     - { AB: BTCUSDT, BC: XRPUSDT,   CA: XRPBTC }
-    - { AB: BTCUSDT, BC: ADAUSDT,   CA: ADABTC }
-    - { AB: BTCUSDT, BC: DOGEUSDT,  CA: DOGEBTC }
     - { AB: BTCUSDT, BC: LTCUSDT,   CA: LTCBTC }
-    - { AB: BTCUSDT, BC: TRXUSDT,   CA: TRXBTC }
-    - { AB: BTCUSDT, BC: MATICUSDT, CA: MATICBTC }
     - { AB: BTCUSDT, BC: DOTUSDT,   CA: DOTBTC }
-    - { AB: BTCUSDT, BC: LINKUSDT,  CA: LINKBTC }
+

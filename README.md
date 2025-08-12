@@ -29,9 +29,15 @@ Configuration
   - ARBITR_LOG_LEVEL
   - ARBITR_HTTP_ADDR (default :9090)
   - ARBITR_PPROF (true/false)
+  - ARBITR_ADMIN_ALLOW_CIDRS="10.0.0.0/8,192.168.0.0/16"
+  - ARBITR_TRADING_ENABLED (true/false)
+  - ARBITR_TRADING_LIVE (true/false)
+  - ARBITR_TRADING_PAIRS (CSV)
+  - ARBITR_MAX_NOTIONAL_USD, ARBITR_MAX_ORDERS_PER_MIN, ARBITR_ALLOWED_SYMBOLS (CSV)
+  - ARBITR_BYBIT_API_KEY, ARBITR_BYBIT_SECRET (API credentials)
+  - ARBITR_BYBIT_BASE_URL (override Bybit API base URL; e.g., https://api.bybit.com for mainnet)
 
 See config.example.yaml for a starting point.
-
 Docker
 - Build image: docker build -t arbitr:local .
 - Run: docker run --rm -p 9090:9090 arbitr:local
