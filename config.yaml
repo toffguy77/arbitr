@@ -17,7 +17,7 @@ server:
 trading:
   enabled: true
   live: true
-  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT]
+  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT, ALGOUSDT, MANAUSDT, MNTUSDT, SANDUSDT, WBTCUSDT, XLMUSDT]
   min_net_bps: 5
   notional_usd: 100
   max_notional_usd: 50
@@ -35,4 +35,9 @@ trading:
     - { AB: BTCUSDT, BC: XRPUSDT,   CA: XRPBTC }
     - { AB: BTCUSDT, BC: LTCUSDT,   CA: LTCBTC }
     - { AB: BTCUSDT, BC: DOTUSDT,   CA: DOTBTC }
-
+    - { AB: BTCUSDT, BC: ALGOUSDT,  CA: ALGOBTC }
+    - { AB: BTCUSDT, BC: MANAUSDT,  CA: MANABTC }
+    - { AB: BTCUSDT, BC: MNTUSDT,   CA: MNTBTC }
+    - { AB: BTCUSDT, BC: SANDUSDT,  CA: SANDBTC }
+    - { AB: BTCUSDT, BC: WBTCUSDT,  CA: WBTCBTC }
+    - { AB: BTCUSDT, BC: XLMUSDT,   CA: XLMBTC }

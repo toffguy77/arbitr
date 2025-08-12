@@ -13,10 +13,14 @@ import (
 
 // allowedForLive checks whether all legs of the triangle are permitted for live trading.
 func (e *Engine) allowedForLive(tri config.Triangle) bool {
-	if len(e.cfg.Trading.AllowedSymbols) == 0 { return true }
+	if len(e.cfg.Trading.AllowedSymbols) == 0 {
+		return true
+	}
 	ok := func(sym string) bool {
 		for _, s := range e.cfg.Trading.AllowedSymbols {
-			if s == sym { return true }
+			if s == sym {
+				return true
+			}
 		}
 		return false
 	}
@@ -24,13 +28,20 @@ func (e *Engine) allowedForLive(tri config.Triangle) bool {
 }
 
 // placeFirstLeg submits a small limit order on the AB leg as a safe testnet action.
-func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, tri config.Triangle, tAB, tBC, tCA common.Ticker) (string, error) {
-	_ = tBC; _ = tCA
-	if tri.AB == "" { return "", fmt.Errorf("empty symbol AB") }
+func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, tri config.Triangle, tAB, tBC, tCA common.Ticker) (string, float64, error) {
+	_ = tBC
+	_ = tCA
+	if tri.AB == "" {
+		return "", 0, fmt.Errorf("empty symbol AB")
+	}
 	price := tAB.Bid
-	if price <= 0 { return "", fmt.Errorf("invalid price") }
+	if price <= 0 {
+		return "", 0, fmt.Errorf("invalid price")
+	}
 	qty := e.cfg.Trading.MaxNotionalUSD / price
-	if qty <= 0 { return "", fmt.Errorf("invalid qty") }
+	if qty <= 0 {
+		return "", 0, fmt.Errorf("invalid qty")
+	}
 
 	// Fetch balances (will also be logged below) to decide side/qty
 	var balances []common.Balance
@@ -60,7 +71,9 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 
 	// Build balance map for quick lookup
 	bal := map[string]float64{}
-	for _, b := range balances { bal[strings.ToUpper(b.Asset)] = b.Free }
+	for _, b := range balances {
+		bal[strings.ToUpper(b.Asset)] = b.Free
+	}
 
 	// Decide side: SELL if enough base balance; otherwise BUY
 	side := common.OrderSide("sell")
@@ -70,42 +83,67 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 
 	// Choose price: for BUY use Ask, for SELL use Bid to improve fill probability
 	if side == common.Buy {
-		if tAB.Ask > 0 { price = tAB.Ask }
+		if tAB.Ask > 0 {
+			price = tAB.Ask
+		}
 	} else {
-		if tAB.Bid > 0 { price = tAB.Bid }
+		if tAB.Bid > 0 {
+			price = tAB.Bid
+		}
 	}
 	// Apply configurable micro skew to improve execution probability
 	skew := e.cfg.Trading.PriceSkewBps / 10000.0
 	if skew > 0 {
-		if side == common.Buy { price = price * (1 + skew) } else { price = price * (1 - skew) }
+		if side == common.Buy {
+			price = price * (1 + skew)
+		} else {
+			price = price * (1 - skew)
+		}
 	}
 
 	// Apply fee buffer when sizing to avoid insufficient balance due to fees
 	feeBps := e.cfg.Trading.FeesBps["bybit"]
-	feeFactor := 1.0 - (feeBps/10000.0) - 0.002 // include a slightly larger safety margin of 0.2%
-	if feeFactor < 0.0 { feeFactor = 0.0 }
+	feeFactor := 1.0 - (feeBps / 10000.0) - 0.002 // include a slightly larger safety margin of 0.2%
+	if feeFactor < 0.0 {
+		feeFactor = 0.0
+	}
 
 	// Cap qty to available balance depending on side, including fee buffer
 	if side == common.Sell {
 		if free := bal[strings.ToUpper(base)]; free > 0 {
 			maxQty := free * feeFactor
-			if qty > maxQty { qty = maxQty }
+			if qty > maxQty {
+				qty = maxQty
+			}
 		}
 	} else { // buy
 		// ensure we have quote currency; cap by USDT balance if known
 		if quote == "USDT" {
 			if free := bal["USDT"]; free > 0 && price > 0 {
 				maxQty := (free / price) * feeFactor
-				if qty > maxQty { qty = maxQty }
+				if qty > maxQty {
+					qty = maxQty
+				}
 			}
 		}
 	}
 
 	// Also respect MaxNotionalUSD cap with the potentially adjusted price
 	maxByNotional := e.cfg.Trading.MaxNotionalUSD / price
-	if maxByNotional > 0 && qty > maxByNotional { qty = maxByNotional }
+	if maxByNotional > 0 && qty > maxByNotional {
+		qty = maxByNotional
+	}
 
-	if qty <= 0 { return "", fmt.Errorf("qty after balance/fee/notional checks is zero") }
+	// Inventory cap: if buy increases base and cap reached, skip
+	if side == common.Buy && e.cfg.Trading.MaxInventoryUSDPerBase > 0 {
+		baseUSD := bal[strings.ToUpper(base)] * price
+		if baseUSD >= e.cfg.Trading.MaxInventoryUSDPerBase {
+			return "", 0, fmt.Errorf("inventory cap reached for %s: %.4f USD", base, baseUSD)
+		}
+	}
+	if qty <= 0 {
+		return "", 0, fmt.Errorf("qty after balance/fee/notional checks is zero")
+	}
 
 	// Round price/qty using exchange-provided steps when available; fallback to conservative defaults
 	qtyStep := 0.000001 // fallback 1e-6
@@ -121,17 +159,22 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 		priceStep = 0.0001
 	}
 	roundDown := func(x, step float64) float64 {
-		if step <= 0 { return x }
+		if step <= 0 {
+			return x
+		}
 		return math.Floor(x/step) * step
 	}
 	qty = roundDown(qty, qtyStep)
 	price = roundDown(price, priceStep)
-	if qty <= 0 || price <= 0 { return "", fmt.Errorf("qty/price became zero after rounding") }
+	if qty <= 0 || price <= 0 {
+		return "", 0, fmt.Errorf("qty/price became zero after rounding")
+	}
 
 	ctxTO, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	ord := common.Order{ Symbol: tri.AB, Side: side, Qty: qty, Price: price }
+	ord := common.Order{Symbol: tri.AB, Side: side, Qty: qty, Price: price}
 	id, err := by.PlaceOrder(ctxTO, ord)
+	var pnlQuote float64
 
 	// Log balances after order if supported
 	if b, ok := by.(common.Balancer); ok {
@@ -151,8 +194,10 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 				db := post[baseU] - pre[baseU]
 				dq := post[quoteU] - pre[quoteU]
 				mid := price
-				if tAB.Bid > 0 && tAB.Ask > 0 { mid = (tAB.Bid + tAB.Ask) / 2 }
-				pnlQuote := dq + db*mid
+				if tAB.Bid > 0 && tAB.Ask > 0 {
+					mid = (tAB.Bid + tAB.Ask) / 2
+				}
+				pnlQuote = dq + db*mid
 				e.logger.Info().
 					Str("exchange", by.Name()).
 					Str("symbol", tri.AB).
@@ -168,6 +213,5 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 			e.logger.Debug().Err(err2).Str("exchange", by.Name()).Msg("failed to fetch balances after order")
 		}
 	}
-	return id, err
+	return id, pnlQuote, err
 }
-

@@ -25,19 +25,23 @@ type Config struct {
 		AdminAllowCIDRs     []string `yaml:"admin_allow_cidrs"`
 	} `yaml:"server"`
 	Trading struct {
-		Enabled         bool               `yaml:"enabled"`
-		Live            bool               `yaml:"live"`
-		Pairs           []string           `yaml:"pairs"`
-		MinNetBps       float64            `yaml:"min_net_bps"`
-		NotionalUSD     float64            `yaml:"notional_usd"`
-		MaxNotionalUSD  float64            `yaml:"max_notional_usd"`
-		MaxOrdersPerMin int                `yaml:"max_orders_per_min"`
-		AllowedSymbols  []string           `yaml:"allowed_symbols"`
-		FeesBps         map[string]float64 `yaml:"fees_bps"`
-		SlippageBps     float64            `yaml:"slippage_bps"`
-		RiskReserveBps  float64            `yaml:"risk_reserve_bps"`
-		PriceSkewBps    float64            `yaml:"price_skew_bps"`
-		Triangles       []Triangle         `yaml:"triangles"`
+		Enabled                 bool               `yaml:"enabled"`
+		Live                    bool               `yaml:"live"`
+		Pairs                   []string           `yaml:"pairs"`
+		MinNetBps               float64            `yaml:"min_net_bps"`
+		NotionalUSD             float64            `yaml:"notional_usd"`
+		MaxNotionalUSD          float64            `yaml:"max_notional_usd"`
+		MaxOrdersPerMin         int                `yaml:"max_orders_per_min"`
+		AllowedSymbols          []string           `yaml:"allowed_symbols"`
+		FeesBps                 map[string]float64 `yaml:"fees_bps"`
+		SlippageBps             float64            `yaml:"slippage_bps"`
+		RiskReserveBps          float64            `yaml:"risk_reserve_bps"`
+		PriceSkewBps            float64            `yaml:"price_skew_bps"`
+		EntryConfirmTicks       int                `yaml:"entry_confirm_ticks"`
+		TriangleCooldownSeconds int                `yaml:"triangle_cooldown_seconds"`
+		DailyPnLStopUSD         float64            `yaml:"daily_pnl_stop_usd"`
+		MaxInventoryUSDPerBase  float64            `yaml:"max_inventory_usd_per_base"`
+		Triangles               []Triangle         `yaml:"triangles"`
 	} `yaml:"trading"`
 	Exchanges struct {
 		Bybit struct {
@@ -88,6 +92,10 @@ func defaultConfig() Config {
 	c.Trading.SlippageBps = 1.0
 	c.Trading.RiskReserveBps = 0.5
 	c.Trading.PriceSkewBps = 1.0 // 0.01% default skew
+	c.Trading.EntryConfirmTicks = 2
+	c.Trading.TriangleCooldownSeconds = 10
+	c.Trading.DailyPnLStopUSD = 0.0
+	c.Trading.MaxInventoryUSDPerBase = 0.0
 	c.Trading.Triangles = []Triangle{
 		{AB: "BTCUSDT", BC: "ETHUSDT", CA: "ETHBTC"},
 		{AB: "BTCUSDT", BC: "BNBUSDT", CA: "BNBBTC"},
@@ -155,11 +163,41 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_ALLOWED_SYMBOLS"); v != "" {
 		c.Trading.AllowedSymbols = splitCSV(v)
 	}
+	if v := os.Getenv("ARBITR_ENTRY_CONFIRM_TICKS"); v != "" {
+		var n int
+		_, _ = fmt.Sscan(v, &n)
+		if n >= 0 {
+			c.Trading.EntryConfirmTicks = n
+		}
+	}
+	if v := os.Getenv("ARBITR_TRIANGLE_COOLDOWN_SECONDS"); v != "" {
+		var n int
+		_, _ = fmt.Sscan(v, &n)
+		if n >= 0 {
+			c.Trading.TriangleCooldownSeconds = n
+		}
+	}
+	if v := os.Getenv("ARBITR_DAILY_PNL_STOP_USD"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.DailyPnLStopUSD = f
+		}
+	}
+	if v := os.Getenv("ARBITR_MAX_INVENTORY_USD_PER_BASE"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.MaxInventoryUSDPerBase = f
+		}
+	}
 	if v := os.Getenv("ARBITR_PRICE_SKEW_BPS"); v != "" {
 		var f float64
-		_, _ = fmt.Sscan(v, 
-&f)
-		if f >= 0 { c.Trading.PriceSkewBps = f }
+		_, _ = fmt.Sscan(v,
+			&f)
+		if f >= 0 {
+			c.Trading.PriceSkewBps = f
+		}
 	}
 	// API keys only from env
 	if v := os.Getenv("ARBITR_BYBIT_API_KEY"); v != "" {
