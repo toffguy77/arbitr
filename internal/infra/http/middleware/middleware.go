@@ -8,8 +8,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// context key for request id
-var reqIDKey = struct{}{}
+// contextKey defines a custom type for context keys to avoid collisions
+type contextKey string
+
+// reqIDKey is the context key for request id
+const reqIDKey contextKey = "requestID"
 
 // RequestID injects a best-effort request id (from header X-Request-Id or generated)
 func RequestID(next http.Handler) http.Handler {

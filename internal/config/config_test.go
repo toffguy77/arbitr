@@ -6,9 +6,9 @@ import (
 )
 
 func TestDefaultConfig(t *testing.T) {
-    os.Unsetenv("ARBITR_CONFIG")
-    os.Unsetenv("ARBITR_REGION")
-    os.Unsetenv("ARBITR_LOG_LEVEL")
+    _ = os.Unsetenv("ARBITR_CONFIG")
+    _ = os.Unsetenv("ARBITR_REGION")
+    _ = os.Unsetenv("ARBITR_LOG_LEVEL")
 
     c := Load()
     if c.Network.Region != "EU-West" {

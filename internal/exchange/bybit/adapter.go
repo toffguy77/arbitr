@@ -47,7 +47,7 @@ func (a *Adapter) ListSpotSymbols(ctx context.Context) (map[string]struct{}, err
 		a.logger.Debug().Err(err).Str("method", http.MethodGet).Str("url", u).Msg("http request failed")
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var out = map[string]struct{}{}
 	var r struct{
 		RetCode int    `json:"retCode"`
@@ -71,7 +71,7 @@ func (a *Adapter) GetTicker(ctx context.Context, symbol string) (common.Ticker, 
 	start := time.Now()
 	resp, err := a.http.Do(req)
 	if err != nil { a.logger.Debug().Err(err).Str("method", http.MethodGet).Str("url", u).Str("symbol", symbol).Msg("http request failed"); return common.Ticker{}, err }
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var t struct{
 		RetCode int    `json:"retCode"`
 		RetMsg  string `json:"retMsg"`
@@ -134,7 +134,7 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 		a.logger.Debug().Err(err).Str("method", http.MethodPost).Str("endpoint", endpoint).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", ord.Qty).Float64("price", ord.Price).Msg("http request failed")
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var r struct{ RetCode int `json:"retCode"`; RetMsg string `json:"retMsg"`; Result struct{ OrderId string `json:"orderId"` } `json:"result"` }
 	decErr := json.NewDecoder(resp.Body).Decode(&r)
 	a.logger.Debug().Str("method", http.MethodPost).Str("endpoint", endpoint).Int("status", resp.StatusCode).Dur("latency", time.Since(start)).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", ord.Qty).Float64("price", ord.Price).Int("retCode", r.RetCode).Str("retMsg", r.RetMsg).Msg("bybit order create response")
@@ -161,7 +161,7 @@ func (a *Adapter) GetSymbolSteps(ctx context.Context, symbol string) (float64, f
 		a.logger.Debug().Err(err).Str("method", http.MethodGet).Str("url", u).Msg("http request failed")
 		return 0, 0, false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var r struct{
 		RetCode int    `json:"retCode"`
 		RetMsg  string `json:"retMsg"`
@@ -207,7 +207,7 @@ func (a *Adapter) PrefetchSymbolSteps(ctx context.Context, symbols []string) err
 		a.logger.Debug().Err(err).Str("method", http.MethodGet).Str("url", u).Msg("http request failed")
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var r struct{
 		RetCode int    `json:"retCode"`
 		RetMsg  string `json:"retMsg"`
@@ -259,7 +259,7 @@ func (a *Adapter) GetBalances(ctx context.Context) ([]common.Balance, error) {
 	start := time.Now()
 	resp, err := a.http.Do(req)
 	if err != nil { a.logger.Debug().Err(err).Str("method", http.MethodGet).Str("endpoint", endpoint).Msg("http request failed"); return nil, err }
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var r struct {
 		RetCode int    `json:"retCode"`
 		RetMsg  string `json:"retMsg"`

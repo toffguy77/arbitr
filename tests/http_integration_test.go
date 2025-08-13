@@ -45,7 +45,7 @@ func TestReadyzAndVersion(t *testing.T) {
     // version should return json
     resp, err = http.Get(srv.URL + "/version")
     if err != nil { t.Fatalf("GET /version error: %v", err) }
-    defer resp.Body.Close()
+    defer func() { _ = resp.Body.Close() }()
     if ct := resp.Header.Get("Content-Type"); !strings.Contains(ct, "application/json") {
         t.Fatalf("/version expected application/json, got %s", ct)
     }
@@ -59,7 +59,7 @@ func TestHealthzEndpoint(t *testing.T) {
     if err != nil {
         t.Fatalf("GET /healthz error: %v", err)
     }
-    defer resp.Body.Close()
+    defer func() { _ = resp.Body.Close() }()
 
     if resp.StatusCode != http.StatusOK {
         t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -74,7 +74,7 @@ func TestMetricsEndpoint(t *testing.T) {
     if err != nil {
         t.Fatalf("GET /metrics error: %v", err)
     }
-    defer resp.Body.Close()
+    defer func() { _ = resp.Body.Close() }()
 
     if resp.StatusCode != http.StatusOK {
         t.Fatalf("expected 200, got %d", resp.StatusCode)
@@ -82,7 +82,7 @@ func TestMetricsEndpoint(t *testing.T) {
     // Basic smoke-check: the registry should expose at least one of our metrics
     b, _ := io.ReadAll(resp.Body)
     body := string(b)
-    if body == "" || !(strings.Contains(body, "decision_latency_ms") || strings.Contains(body, "arbitrage_opportunities_found")) {
+    if body == "" || (!strings.Contains(body, "decision_latency_ms") && !strings.Contains(body, "arbitrage_opportunities_found")) {
         t.Fatalf("metrics output did not contain expected metrics, got: %q", body)
     }
 }

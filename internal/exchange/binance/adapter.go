@@ -24,7 +24,7 @@ func (a *Adapter) GetTicker(ctx context.Context, symbol string) (common.Ticker, 
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	resp, err := a.http.Do(req)
 	if err != nil { return common.Ticker{}, err }
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	var t struct{ BidPrice string `json:"bidPrice"`; AskPrice string `json:"askPrice"` }
 	if err := json.NewDecoder(resp.Body).Decode(&t); err != nil { return common.Ticker{}, err }
 	var bid, ask float64

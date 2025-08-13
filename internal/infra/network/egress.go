@@ -5,8 +5,8 @@ import "time"
 type Region string
 
 const (
-	RegionEUWest   Region = "EU-West"
-	RegionEUCentral       = "EU-Central"
+	RegionEUWest    Region = "EU-West"
+	RegionEUCentral Region = "EU-Central"
 )
 
 type EgressManager struct {
