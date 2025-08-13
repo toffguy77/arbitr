@@ -6,8 +6,6 @@ version: 2
 run:
   timeout: 5m
   go: "1.22"
-  skip-dirs:
-    - vendor
 
 linters:
   # Enable only basic linters for CI stability
@@ -22,12 +20,10 @@ linters-settings:
     disable:
       - fieldalignment  # too noisy
       - shadow         # can be noisy
-      - unusedresult   # can be noisy
 
 issues:
   exclude-use-default: true
   exclude-dirs:
     - vendor
-    - tests  # exclude test directory
   max-issues-per-linter: 50
   max-same-issues: 3
