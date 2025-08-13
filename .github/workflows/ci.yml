@@ -31,7 +31,11 @@ jobs:
           args: --timeout=5m --enable=errcheck,staticcheck
       - name: Set version info
         run: |
-          echo "VERSION=${GITHUB_REF_TYPE == 'tag' && github.ref_name || 'dev'}" >> $GITHUB_ENV
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "VERSION=$GITHUB_REF_NAME" >> $GITHUB_ENV
+          else
+            echo "VERSION=dev" >> $GITHUB_ENV
+          fi
           echo "COMMIT=${GITHUB_SHA::7}" >> $GITHUB_ENV
           echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_ENV
         shell: bash
