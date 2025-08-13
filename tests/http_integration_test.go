@@ -31,7 +31,6 @@ func buildMux(t *testing.T) http.Handler {
 }
 
 func TestReadyzAndVersion(t *testing.T) {
-    t.Parallel()
     srv := httptest.NewServer(buildMux(t))
     t.Cleanup(srv.Close)
 
@@ -53,7 +52,6 @@ func TestReadyzAndVersion(t *testing.T) {
 }
 
 func TestHealthzEndpoint(t *testing.T) {
-    t.Parallel()
     srv := httptest.NewServer(buildMux(t))
     t.Cleanup(srv.Close)
 
@@ -69,7 +67,6 @@ func TestHealthzEndpoint(t *testing.T) {
 }
 
 func TestMetricsEndpoint(t *testing.T) {
-    t.Parallel()
     srv := httptest.NewServer(buildMux(t))
     t.Cleanup(srv.Close)
 
