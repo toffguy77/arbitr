@@ -1,35 +1,17 @@
 # golangci-lint configuration
-# Compatible with golangci-lint v1.62.0
+# Minimal config compatible with golangci-lint v1.62.0
 
 run:
   timeout: 5m
-  go: "1.22"
 
 linters:
   enable:
     - govet 
     - ineffassign
     - unused
-    - errcheck
-    - staticcheck
   disable-all: true
-
-linters-settings:
-  govet:
-    check-shadowing: false
-    settings:
-      printf:
-        funcs:
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
-          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
-  staticcheck:
-    go: "1.22"
 
 issues:
   exclude-use-default: true
   exclude-dirs:
     - vendor
-  max-issues-per-linter: 0
-  max-same-issues: 0

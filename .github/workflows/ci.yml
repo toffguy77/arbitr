@@ -28,7 +28,7 @@ jobs:
         uses: golangci/golangci-lint-action@v6
         with:
           version: v1.62.0
-          args: --timeout=5m
+          args: --timeout=5m --enable=errcheck,staticcheck
       - name: Set version info
         run: |
           echo "VERSION=${GITHUB_REF_TYPE == 'tag' && github.ref_name || 'dev'}" >> $GITHUB_ENV
