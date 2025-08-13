@@ -172,8 +172,18 @@ func (e *Engine) placeFirstLeg(ctx context.Context, by common.ExchangeAdapter, t
 
 	ctxTO, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	ord := common.Order{Symbol: tri.AB, Side: side, Qty: qty, Price: price}
+	ord := common.Order{ Symbol: tri.AB, Side: side, Qty: qty, Price: price }
+	// Info: submitting order
+	e.logger.Info().Str("exchange", by.Name()).Str("symbol", ord.Symbol).Str("side", string(ord.Side)).Float64("qty", ord.Qty).Float64("price", ord.Price).Msg("order submitting")
 	id, err := by.PlaceOrder(ctxTO, ord)
+	if err != nil {
+		// Info: order rejected
+		e.logger.Info().Str("exchange", by.Name()).Str("symbol", ord.Symbol).Str("side", string(ord.Side)).Float64("qty", ord.Qty).Float64("price", ord.Price).Err(err).Msg("order rejected")
+	}
+	if err == nil && id != "" {
+		// Info: order accepted (placed on exchange)
+		e.logger.Info().Str("exchange", by.Name()).Str("symbol", ord.Symbol).Str("side", string(ord.Side)).Float64("qty", ord.Qty).Float64("price", ord.Price).Str("order_id", id).Msg("order accepted")
+	}
 	var pnlQuote float64
 
 	// Log balances after order if supported
