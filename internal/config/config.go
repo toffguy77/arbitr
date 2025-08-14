@@ -41,6 +41,9 @@ type Config struct {
 		TriangleCooldownSeconds int                `yaml:"triangle_cooldown_seconds"`
 		DailyPnLStopUSD         float64            `yaml:"daily_pnl_stop_usd"`
 		MaxInventoryUSDPerBase  float64            `yaml:"max_inventory_usd_per_base"`
+		MaxUnwindSlippageBps    float64            `yaml:"max_unwind_slippage_bps"`
+		OrderTTLMs              int                `yaml:"order_ttl_ms"`
+		MaxConcurrentTriangles  int                `yaml:"max_concurrent_triangles"`
 		Triangles               []Triangle         `yaml:"triangles"`
 	} `yaml:"trading"`
 	Exchanges struct {
@@ -84,7 +87,7 @@ func defaultConfig() Config {
 	c.Trading.Live = false
 	c.Trading.Pairs = []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "MATICUSDT", "DOTUSDT", "LINKUSDT"}
 	c.Trading.MinNetBps = 5.0
-	c.Trading.NotionalUSD = 100.0
+	c.Trading.NotionalUSD = 50.0
 	c.Trading.MaxNotionalUSD = 50.0
 	c.Trading.MaxOrdersPerMin = 10
 	c.Trading.AllowedSymbols = nil
@@ -96,6 +99,9 @@ func defaultConfig() Config {
 	c.Trading.TriangleCooldownSeconds = 10
 	c.Trading.DailyPnLStopUSD = 0.0
 	c.Trading.MaxInventoryUSDPerBase = 0.0
+	c.Trading.MaxUnwindSlippageBps = 10.0 // 0.10% max slippage for unwind
+	c.Trading.OrderTTLMs = 1500
+	c.Trading.MaxConcurrentTriangles = 1
 	c.Trading.Triangles = []Triangle{
 		{AB: "BTCUSDT", BC: "ETHUSDT", CA: "ETHBTC"},
 		{AB: "BTCUSDT", BC: "BNBUSDT", CA: "BNBBTC"},

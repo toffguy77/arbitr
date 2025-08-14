@@ -38,19 +38,45 @@ var (
 	RestrictedActionsTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "restricted_actions_total"})
 	RTTWsMedianMs = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "rtt_ws_median_ms", Help: "Median WS RTT by exchange"}, []string{"exchange"})
 	RTTRestMedianMs = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "rtt_rest_median_ms", Help: "Median REST RTT by exchange"}, []string{"exchange"})
-	TimeOffsetMs = prometheus.NewGauge(prometheus.GaugeOpts{Name: "time_offset_ms", Help: "NTP/clock drift in ms"})
+TimeOffsetMs = prometheus.NewGauge(prometheus.GaugeOpts{Name: "time_offset_ms", Help: "NTP/clock drift in ms"})
+
+// Triangle quality metrics
+TrianglesOutcomeTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{Name: "triangles_outcome_total", Help: "Triangle execution outcomes by triangle and outcome"},
+	[]string{"triangle","outcome"},
+)
+TrianglesFailReasonsTotal = prometheus.NewCounterVec(
+	prometheus.CounterOpts{Name: "triangles_fail_reasons_total", Help: "Fail reasons per triangle"},
+	[]string{"triangle","reason"},
+)
+TrianglesNetBpsEma = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{Name: "triangles_net_bps_ema", Help: "EMA of net bps per triangle"},
+	[]string{"triangle"},
+)
+
+// New metrics for lifecycle and data health
+BookStalenessMs = prometheus.NewGaugeVec(prometheus.GaugeOpts{Name: "book_staleness_ms", Help: "WS book staleness in ms by exchange"}, []string{"exchange"})
+WSReconnectsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "ws_reconnects_total", Help: "WS reconnects by exchange and reason"}, []string{"exchange","reason"})
+ExecutionLatencyMs = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "execution_latency_ms", Help: "Decision to submit latency", Buckets: prometheus.LinearBuckets(1, 5, 40)})
+PartialFillsTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "partial_fills_total", Help: "Total partial fills observed"})
+OrderTTLExpiredTotal = prometheus.NewCounter(prometheus.CounterOpts{Name: "order_ttl_expired_total", Help: "Orders that exceeded TTL"})
+RealizedSlippageBps = prometheus.NewGauge(prometheus.GaugeOpts{Name: "realized_slippage_bps", Help: "Realized slippage bps from fills"})
+RealizedFeeBps = prometheus.NewGauge(prometheus.GaugeOpts{Name: "realized_fee_bps", Help: "Realized fee bps"})
+BookRebuildsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "book_rebuilds_total", Help: "Orderbook snapshot rebuilds by exchange and reason"}, []string{"exchange","reason"})
 )
 
 func Init(logger zerolog.Logger) *prometheus.Registry {
 	reg := prometheus.NewRegistry()
 toRegister := []prometheus.Collector{
 		DecisionLatencyMs, OrderSubmitLatencyMs, ArbOppsFound, ArbOppsExecuted,
-		TrianglesCheckedTotal, TrianglesAttemptedTotal, OrdersSubmittedTotal, OrdersCancelledTotal, OrdersFilledTotal, APIErrorsTotal,
+TrianglesCheckedTotal, TrianglesAttemptedTotal, OrdersSubmittedTotal, OrdersCancelledTotal, OrdersFilledTotal, APIErrorsTotal,
 		TriangleGrossBps, TriangleNetBps,
 		FillsSuccessRatio, PartialFillRatio, NetProfitBps, NetProfitUSD,
 		GrossSpreadBps, RejectedOrders, WSReconnects, RiskBlocks,
 		BalanceDesyncEvents, SlippageRealizedBps, VaR99Intraday, DrawdownIntradayBps,
 		ComplianceBlocksTotal, RestrictedActionsTotal, RTTWsMedianMs, RTTRestMedianMs, TimeOffsetMs,
+TrianglesOutcomeTotal, TrianglesFailReasonsTotal, TrianglesNetBpsEma,
+BookStalenessMs, WSReconnectsTotal, ExecutionLatencyMs, PartialFillsTotal, OrderTTLExpiredTotal, RealizedSlippageBps, RealizedFeeBps, BookRebuildsTotal,
 		collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	}
 	for _, c := range toRegister { _ = reg.Register(c) }

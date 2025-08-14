@@ -2,6 +2,24 @@ package slippage
 
 import "arbitr/internal/orderbook"
 
+// ExecutableQty returns the maximum quantity executable at or better than limit price.
+// For buys, consumes asks at prices <= limit; for sells, consumes bids at prices >= limit.
+func ExecutableQty(book orderbook.L2, limit float64, isBuy bool) float64 {
+	var filled float64
+	if isBuy {
+		for _, lvl := range book.Asks {
+			if lvl.Price > limit { break }
+			filled += lvl.Qty
+		}
+	} else {
+		for _, lvl := range book.Bids {
+			if lvl.Price < limit { break }
+			filled += lvl.Qty
+		}
+	}
+	return filled
+}
+
 // Integral-based slippage over L2 depth. Returns slippage in bps relative to mid.
 func IntegralBps(book orderbook.L2, qty float64, isBuy bool, mid float64) float64 {
 	if qty <= 0 || mid <= 0 { return 0 }

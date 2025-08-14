@@ -17,21 +17,24 @@ server:
 trading:
   enabled: true
   live: true
-  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT]
-  min_net_bps: 5
-  notional_usd: 100
-  max_notional_usd: 50
-  max_orders_per_min: 10
+  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT, ALGOUSDT, MANAUSDT, MNTUSDT, SANDUSDT, WBTCUSDT, XLMUSDT, ETHBTC, SOLBTC, XRPBTC, LTCBTC, DOTBTC, ALGOBTC, MANABTC, MNTBTC, SANDBTC, WBTCBTC, XLMBTC]
+  min_net_bps: 10
+  notional_usd: 20
+  max_notional_usd: 20
+  max_orders_per_min: 6
   allowed_symbols: []
   fees_bps:
     bybit: 10
-  slippage_bps: 1
+  slippage_bps: 2
   risk_reserve_bps: 0.5
   price_skew_bps: 1.0
-  entry_confirm_ticks: 3
-  triangle_cooldown_seconds: 20
-  daily_pnl_stop_usd: 10
-  max_inventory_usd_per_base: 150
+  entry_confirm_ticks: 2
+  triangle_cooldown_seconds: 10
+  daily_pnl_stop_usd: 5
+  max_inventory_usd_per_base: 50
+  max_unwind_slippage_bps: 10
+  order_ttl_ms: 1500
+  max_concurrent_triangles: 1
   # Triangles must be valid markets on Bybit spot. Below are commonly liquid examples; adjust to real availability on Bybit.
   triangles:
     - { AB: BTCUSDT, BC: ETHUSDT,   CA: ETHBTC }
