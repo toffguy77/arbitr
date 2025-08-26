@@ -77,7 +77,7 @@ func defaultConfig() Config {
 	c.Network.WSKeepAliveSeconds = 15
 	c.Logging.Level = "info"
 	c.Logging.Pretty = false
-	c.Server.Addr = ":9090"
+	c.Server.Addr = ":19091"
 	c.Server.Pprof = false
 	c.Server.ReadTimeoutSeconds = 5
 	c.Server.WriteTimeoutSeconds = 10
