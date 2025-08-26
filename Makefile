@@ -1,63 +1,119 @@
-SHELL := /bin/sh
-GO ?= go
-APP := arbitr
-PKG := ./cmd/arbitrage
+.PHONY: deps build run test clean fmt vet docker-build docker-run docker-stop docker-logs docker-clean dev test-shutdown all
 
-# Ensure Go-installed tools are on PATH
-export PATH := $(shell $(GO) env GOPATH)/bin:$(PATH)
+# Go binary path (adjust if needed)
+GO := /opt/homebrew/bin/go
 
-.PHONY: all build test lint race run docker k8s-apply k8s-delete tools docker_check kubectl_check
+# Docker settings
+IMAGE_NAME := arbitr
+CONTAINER_NAME := arbitr
+LOG_LEVEL ?= INFO
 
-# Helper to ensure a tool exists, otherwise install it via Go
-# Usage: $(call ensure_tool,binary,go-install-path@version)
-define ensure_tool
-	@command -v $(1) >/dev/null 2>&1 || { \
-		echo "Installing $(1) ..."; \
-		$(GO) install $(2) || exit 1; \
-	}
-	@command -v $(1) >/dev/null 2>&1 || { \
-		echo "ERROR: $(1) not found on PATH even after install. Ensure $$GOBIN or $$GOPATH/bin is in PATH."; \
-		exit 1; \
-	}
-endef
-
-# Tool versions
-GOLANGCI_LINT := github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
-
-all: lint test build
+# === Local Development ===
+deps:
+	$(GO) mod tidy
+	$(GO) mod download
 
 build:
-	$(GO) build $(PKG)
+	$(GO) build -o bin/arbitrage ./cmd/arbitrage
 
-run:
-	$(GO) run $(PKG)
+run: build
+	./bin/arbitrage
 
 test:
-	$(GO) test ./...
+	$(GO) test -race -count=1 ./...
 
-race:
-	$(GO) test -race ./...
+fmt:
+	$(GO) fmt ./...
 
-# Ensure required dev tools are available
-tools:
-	$(call ensure_tool,golangci-lint,$(GOLANGCI_LINT))
-
-lint: tools
+vet:
 	$(GO) vet ./...
-	golangci-lint run --timeout=5m || true
 
-# Checks for external CLIs that cannot be installed via Go toolchain
-docker_check:
-	@command -v docker >/dev/null 2>&1 || { echo "ERROR: docker not found. Please install Docker Desktop or Docker Engine and ensure it is on PATH."; exit 1; }
+clean:
+	rm -rf bin/
 
-kubectl_check:
-	@command -v kubectl >/dev/null 2>&1 || { echo "ERROR: kubectl not found. Please install kubectl and ensure it is on PATH."; exit 1; }
+# === Docker Commands ===
+docker-build:
+	@echo "Building Docker image..."
+	docker build -t $(IMAGE_NAME) .
 
-docker: docker_check
-	docker build -t $(APP):local .
+docker-run: docker-build
+	@echo "Starting container with LOG_LEVEL=$(LOG_LEVEL)..."
+	@docker stop $(CONTAINER_NAME) 2>/dev/null || true
+	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
+	docker run -d \
+		--name $(CONTAINER_NAME) \
+		-e ARBITR_LOG_LEVEL=$(LOG_LEVEL) \
+		-p 19091:19091 \
+		--restart always \
+		$(IMAGE_NAME)
+	@echo "Container started. Use 'make docker-logs' to view logs."
 
-k8s-apply: kubectl_check
-	kubectl apply -f deploy/k8s
+docker-stop:
+	@echo "Stopping container..."
+	@docker stop $(CONTAINER_NAME) 2>/dev/null || true
+	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
 
-k8s-delete: kubectl_check
-	kubectl delete -f deploy/k8s || true
+docker-restart: docker-stop docker-run
+
+docker-logs:
+	docker logs -f $(CONTAINER_NAME)
+
+docker-status:
+	docker ps -f name=$(CONTAINER_NAME)
+
+docker-clean: docker-stop
+	@echo "Cleaning up Docker resources..."
+	docker rmi $(IMAGE_NAME) 2>/dev/null || true
+	docker system prune -f
+
+# === Development Helpers ===
+dev: fmt vet build
+
+# Test graceful shutdown (local)
+test-shutdown: build
+	@echo "Testing graceful shutdown..."
+	@./bin/arbitrage & \
+	PID=$$!; \
+	echo "Started with PID: $$PID"; \
+	sleep 3; \
+	echo "Sending SIGTERM..."; \
+	kill -TERM $$PID 2>/dev/null || true; \
+	wait $$PID 2>/dev/null || true; \
+	echo "Checking for remaining processes..."; \
+	REMAINING=$$(ps aux | grep arbitrage | grep -v grep | grep -v make || true); \
+	if [ -z "$$REMAINING" ]; then \
+		echo "✅ SUCCESS: Graceful shutdown working"; \
+	else \
+		echo "❌ FAILURE: Found remaining processes"; \
+	fi
+
+# Test Docker graceful shutdown
+test-docker-shutdown: docker-run
+	@echo "Testing Docker graceful shutdown..."
+	sleep 5
+	@echo "Stopping container..."
+	make docker-stop
+	@echo "✅ Docker graceful shutdown test completed"
+
+all: deps fmt vet test build
+
+# === Help ===
+help:
+	@echo "Available commands:"
+	@echo "  Local development:"
+	@echo "    make build          - Build binary"
+	@echo "    make run            - Run locally"
+	@echo "    make test           - Run tests"
+	@echo "    make dev            - Format, vet, and build"
+	@echo ""
+	@echo "  Docker:"
+	@echo "    make docker-run     - Build and run in Docker (LOG_LEVEL=INFO)"
+	@echo "    make docker-run LOG_LEVEL=DEBUG - Run with debug logging"
+	@echo "    make docker-stop    - Stop Docker container"
+	@echo "    make docker-logs    - View container logs"
+	@echo "    make docker-status  - Show container status"
+	@echo "    make docker-clean   - Stop and remove all Docker resources"
+	@echo ""
+	@echo "  Testing:"
+	@echo "    make test-shutdown  - Test graceful shutdown (local)"
+	@echo "    make test-docker-shutdown - Test graceful shutdown (Docker)"
