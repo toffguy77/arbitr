@@ -10,7 +10,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go build -ldflags "-X arbitr/internal/infra/version.Version=$VERSION -X arbitr/internal/infra/version.Commit=$COMMIT -X arbitr/internal/infra/version.BuildTime=$BUILD_TIME" -o /out/arbitr ./cmd/arbitrage
 
 FROM gcr.io/distroless/static:nonroot
-ENV ARBITR_HTTP_ADDR=":9090"
 COPY --from=builder /out/arbitr /usr/local/bin/arbitr
-EXPOSE 9090
+EXPOSE 19091
 ENTRYPOINT ["/usr/local/bin/arbitr"]

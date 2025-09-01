@@ -52,6 +52,7 @@ docker-run: docker-build
 	@docker rm $(CONTAINER_NAME) 2>/dev/null || true
 	docker run -d \
 		--name $(CONTAINER_NAME) \
+		--env-file .env \
 		-e ARBITR_LOG_LEVEL=$(LOG_LEVEL) \
 		-p 19091:19091 \
 		--restart always \
