@@ -17,6 +17,9 @@ build:
 	$(GO) build -o bin/arbitrage ./cmd/arbitrage
 
 run: build
+	@echo "🚀 ЗАПУСК АГРЕССИВНОЙ АРБИТРАЖНОЙ СИСТЕМЫ"
+	@echo "⚠️  УБЕДИТЕСЬ: API ключи установлены в .env"
+	@echo "📊 Мониторинг: http://localhost:19091/metrics"
 	./bin/arbitrage
 
 test:
