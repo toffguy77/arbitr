@@ -7,9 +7,9 @@ func NetSpreadBps(grossSpreadBps, feesBps, slippageBps, riskReserveBps decimal.D
 	return grossSpreadBps.Sub(feesBps).Sub(slippageBps).Sub(riskReserveBps)
 }
 
-// Reject opportunities below 0.5 bps for aggressive trading
+// Reject opportunities below 0.2 bps for ultra aggressive trading
 func Reject(netSpreadBps decimal.Decimal) bool { 
-	return netSpreadBps.LessThan(decimal.NewFromFloat(0.5)) 
+	return netSpreadBps.LessThan(decimal.NewFromFloat(0.2)) 
 }
 
 // PositionSizeUSD computes aggressive position size in USD

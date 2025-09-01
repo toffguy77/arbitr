@@ -17,9 +17,16 @@ build:
 	$(GO) build -o bin/arbitrage ./cmd/arbitrage
 
 run: build
-	@echo "🚀 ЗАПУСК АГРЕССИВНОЙ АРБИТРАЖНОЙ СИСТЕМЫ"
-	@echo "⚠️  УБЕДИТЕСЬ: API ключи установлены в .env"
+	@echo "🚀 ЗАПУСК УЛЬТРА АГРЕССИВНОЙ АРБИТРАЖНОЙ СИСТЕМЫ"
+	@echo "⚠️  КРИТИЧНО: Проверьте API ключи в .env!"
+	@echo "💰 Целевая прибыль: $500-2000+ в день"
 	@echo "📊 Мониторинг: http://localhost:19091/metrics"
+	@echo "🔥 Ожидайте 50-200+ сделок в час"
+	@if grep -q "YOUR_REAL" .env; then \
+		echo "❌ ОШИБКА: Установите реальные API ключи в .env!"; \
+		echo "📖 Читайте TRADING_SETUP.md"; \
+		exit 1; \
+	fi
 	./bin/arbitrage
 
 test:

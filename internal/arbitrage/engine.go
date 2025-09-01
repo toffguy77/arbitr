@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"arbitr/internal/config"
 	"arbitr/internal/exchange/common"
 	"arbitr/internal/infra/log"
@@ -79,7 +81,8 @@ func (e *Engine) Run(ctx context.Context) error {
 				e.logger.Debug().Err(err).Str("exchange", name).Msg("failed to fetch balances")
 			} else {
 				for _, bl := range balances {
-					e.logger.Info().Str("exchange", name).Str("asset", bl.Asset).Float64("free", bl.Free).Msg("balance at startup")
+					freeFloat, _ := bl.Free.Float64()
+					e.logger.Info().Str("exchange", name).Str("asset", bl.Asset).Float64("free", freeFloat).Msg("balance at startup")
 				}
 			}
 		}
@@ -259,14 +262,16 @@ func (e *Engine) Run(ctx context.Context) error {
 				}
 				var totalUSD float64
 				for _, b := range balances {
+					freeFloat, _ := b.Free.Float64()
 					if strings.EqualFold(b.Asset, "USDT") || strings.EqualFold(b.Asset, "USD") {
-						totalUSD += b.Free
+						totalUSD += freeFloat
 						continue
 					}
 					// try to price asset in USDT
 					tick, err2 := by.GetTicker(ctx, strings.ToUpper(b.Asset)+"USDT")
 					if err2 == nil {
-						totalUSD += b.Free * tick.Bid
+						bidFloat, _ := tick.Bid.Float64()
+						totalUSD += freeFloat * bidFloat
 					}
 				}
 				if e.riskEng != nil {
@@ -323,32 +328,39 @@ func (e *Engine) Run(ctx context.Context) error {
 					}
 
 					// Estimate dynamic slippage for tentative qty
-					qtyBase := e.cfg.Trading.MaxNotionalUSD
-					if qtyBase <= 0 {
-						qtyBase = e.cfg.Trading.NotionalUSD
+					qtyBaseFloat, _ := e.cfg.Trading.MaxNotionalUSD.Float64()
+					if qtyBaseFloat <= 0 {
+						qtyBaseFloat, _ = e.cfg.Trading.NotionalUSD.Float64()
 					}
-					if qtyBase <= 0 {
-						qtyBase = 50
+					if qtyBaseFloat <= 0 {
+						qtyBaseFloat = 50
 					}
-					qtyAB := qtyBase / maxf(tAB.Bid, tAB.Ask)
+					bidFloat, _ := tAB.Bid.Float64()
+					askFloat, _ := tAB.Ask.Float64()
+					qtyAB := qtyBaseFloat / maxf(bidFloat, askFloat)
 					// Estimate slippage per direction for more accurate net calculations
 					slipF := e.estimateTriangleSlippageBps(ctx, by, tri, qtyAB, tAB, tBC, tCA, "F")
 					slipR := e.estimateTriangleSlippageBps(ctx, by, tri, qtyAB, tAB, tBC, tCA, "R")
 
 					grossF, netF := strategy.EvalTriangleForward(
 						tAB.Bid, tBC.Bid, tCA.Bid,
-						e.cfg.Trading.FeesBps["bybit"],
-						slipF,
-						e.cfg.Trading.RiskReserveBps,
+						decimal.NewFromFloat(e.cfg.Trading.FeesBps["bybit"]),
+						decimal.NewFromFloat(slipF),
+						decimal.NewFromFloat(e.cfg.Trading.RiskReserveBps),
 					)
 					grossR, netR := strategy.EvalTriangleReverse(
 						tAB.Ask, tBC.Bid, tCA.Ask,
-						e.cfg.Trading.FeesBps["bybit"],
-						slipR,
-						e.cfg.Trading.RiskReserveBps,
+						decimal.NewFromFloat(e.cfg.Trading.FeesBps["bybit"]),
+						decimal.NewFromFloat(slipR),
+						decimal.NewFromFloat(e.cfg.Trading.RiskReserveBps),
 					)
-					net := netF; gross := grossF; dir := "F"; slipUse := slipF
-					if netR > netF { net = netR; gross = grossR; dir = "R"; slipUse = slipR }
+					grossFloat, _ := grossF.Float64()
+					netFloat, _ := netF.Float64()
+					grossRFloat, _ := grossR.Float64()
+					netRFloat, _ := netR.Float64()
+					net := netFloat; gross := grossFloat; dir := "F"; slipUse := slipF
+					if netRFloat > netFloat { net = netRFloat; gross = grossRFloat; dir = "R"; slipUse = slipR }
+
 
 					metrics.TrianglesCheckedTotal.Inc()
 					metrics.TriangleGrossBps.Observe(gross)
@@ -361,12 +373,12 @@ func (e *Engine) Run(ctx context.Context) error {
 						e.mu.Unlock()
 						return
 					}
-					// dynamic threshold per triangle - АГРЕССИВНО СНИЖЕН
+					// dynamic threshold per triangle - УЛЬТРА АГРЕССИВНО
 					minBps := e.dynamicMinNetBps(key)
-					// Снижаем порог в 3 раза для большего количества сделок
-					minBps = minBps / 3.0
-					if minBps < 1.0 {
-						minBps = 1.0 // минимум 1 bps
+					// Снижаем порог в 10 раз для максимального количества сделок
+					minBps = minBps / 10.0
+					if minBps < 0.1 {
+						minBps = 0.1 // минимум 0.1 bps
 					}
 					if net >= minBps {
 						e.consec[key]++
@@ -499,12 +511,12 @@ func max(a, b int) int {
 // dynamicMinNetBps computes per-triangle threshold based on EMA and success ratio
 // АГРЕССИВНО СНИЖЕН для максимального заработка
 func (e *Engine) dynamicMinNetBps(key string) float64 {
-	base := e.cfg.Trading.MinNetBps
+	baseFloat, _ := e.cfg.Trading.MinNetBps.Float64()
 	e.mu.Lock()
 	st := e.triStats[key]
 	e.mu.Unlock()
 	if st == nil || st.count < 3 { // снижен с 5 до 3
-		return base * 0.5 // снижаем базовый порог в 2 раза
+		return baseFloat * 0.5 // снижаем базовый порог в 2 раза
 	}
 	ratio := 0.0
 	if st.count > 0 {
@@ -519,13 +531,13 @@ func (e *Engine) dynamicMinNetBps(key string) float64 {
 		bump = 2.0
 	}
 	// if EMA below base, add quarter the gap (снижен с половины)
-	if st.emaNet < base {
-		bump += (base - st.emaNet) * 0.25
+	if st.emaNet < baseFloat {
+		bump += (baseFloat - st.emaNet) * 0.25
 	}
 	if bump > 3.0 { // снижен с 10.0
 		bump = 3.0
 	}
-	out := (base * 0.7) + bump // снижаем базу на 30%
+	out := (baseFloat * 0.7) + bump // снижаем базу на 30%
 	if out < 1.0 {
 		out = 1.0 // минимум 1 bps
 	}
@@ -582,9 +594,15 @@ func (e *Engine) estimateTriangleSlippageBps(ctx context.Context, by common.Exch
 	if !ok1 || !ok2 || !ok3 {
 		return e.cfg.Trading.SlippageBps
 	}
-	midAB := (tAB.Bid + tAB.Ask) / 2
-	midBC := (tBC.Bid + tBC.Ask) / 2
-	midCA := (tCA.Bid + tCA.Ask) / 2
+	tABBidFloat, _ := tAB.Bid.Float64()
+	tABAskFloat, _ := tAB.Ask.Float64()
+	tBCBidFloat, _ := tBC.Bid.Float64()
+	tBCAskFloat, _ := tBC.Ask.Float64()
+	tCABidFloat, _ := tCA.Bid.Float64()
+	tCAAskFloat, _ := tCA.Ask.Float64()
+	midAB := (tABBidFloat + tABAskFloat) / 2
+	midBC := (tBCBidFloat + tBCAskFloat) / 2
+	midCA := (tCABidFloat + tCAAskFloat) / 2
 	// Directional slippage per leg
 	var slAB, slBC, slCA float64
 	if dir == "F" {

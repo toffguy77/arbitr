@@ -142,7 +142,7 @@ func (a *Adapter) GetSymbolFilters(ctx context.Context, symbol string) (float64,
 func (a *Adapter) GetTicker(ctx context.Context, symbol string) (common.Ticker, error) {
 	// prefer WS cache
 	a.mu.RLock()
-	if t, ok := a.tickers[symbol]; ok && t.Bid > 0 && t.Ask > 0 {
+	if t, ok := a.tickers[symbol]; ok && t.Bid.GreaterThan(decimal.Zero) && t.Ask.GreaterThan(decimal.Zero) {
 		a.mu.RUnlock()
 		return t, nil
 	}
@@ -195,7 +195,7 @@ func (a *Adapter) GetTicker(ctx context.Context, symbol string) (common.Ticker, 
 	var bid, ask float64
 	_, _ = fmt.Sscan(t.Result.List[0].Bid1, &bid)
 	_, _ = fmt.Sscan(t.Result.List[0].Ask1, &ask)
-	return common.Ticker{Bid: bid, Ask: ask}, nil
+	return common.Ticker{Bid: decimal.NewFromFloat(bid), Ask: decimal.NewFromFloat(ask)}, nil
 }
 
 func sign(secret, payload string) string {
@@ -218,17 +218,19 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 	if fp, ok := any(a).(common.SymbolFiltersProvider); ok {
 		ctxS, cancelS := context.WithTimeout(ctx, 2*time.Second)
 		if qs, ps, mq, mn, ok2 := fp.GetSymbolFilters(ctxS, ord.Symbol); ok2 {
-			ord.Qty = roundDown(ord.Qty, qs)
-			ord.Price = roundDown(ord.Price, ps)
-			if ord.Qty <= 0 || ord.Price <= 0 {
+			qtyFloat, _ := ord.Qty.Float64()
+			priceFloat, _ := ord.Price.Float64()
+			ord.Qty = decimal.NewFromFloat(roundDown(qtyFloat, qs))
+			ord.Price = decimal.NewFromFloat(roundDown(priceFloat, ps))
+			if ord.Qty.LessThanOrEqual(decimal.Zero) || ord.Price.LessThanOrEqual(decimal.Zero) {
 				cancelS()
 				return "", fmt.Errorf("qty/price invalid after rounding")
 			}
-			if mq > 0 && ord.Qty < mq {
+			if mq > 0 && ord.Qty.LessThan(decimal.NewFromFloat(mq)) {
 				cancelS()
 				return "", fmt.Errorf("qty below minQty")
 			}
-			if mn > 0 && ord.Qty*ord.Price < mn {
+			if mn > 0 && ord.Qty.Mul(ord.Price).LessThan(decimal.NewFromFloat(mn)) {
 				cancelS()
 				return "", fmt.Errorf("notional below minNotional")
 			}
@@ -237,8 +239,10 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 	} else if st, ok := any(a).(common.SymbolStepper); ok {
 		ctxS, cancelS := context.WithTimeout(ctx, 2*time.Second)
 		if qs, ps, ok2 := st.GetSymbolSteps(ctxS, ord.Symbol); ok2 {
-			ord.Qty = roundDown(ord.Qty, qs)
-			ord.Price = roundDown(ord.Price, ps)
+			qtyFloat, _ := ord.Qty.Float64()
+			priceFloat, _ := ord.Price.Float64()
+			ord.Qty = decimal.NewFromFloat(roundDown(qtyFloat, qs))
+			ord.Price = decimal.NewFromFloat(roundDown(priceFloat, ps))
 		}
 		cancelS()
 	}
@@ -253,13 +257,13 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 		"symbol":    ord.Symbol,
 		"side":      side,
 		"orderType": "Limit",
-		"qty":       fmt.Sprintf("%f", ord.Qty),
-		"price":     fmt.Sprintf("%f", ord.Price),
+		"qty":       ord.Qty.String(),
+		"price":     ord.Price.String(),
 		"timeInForce": func() string {
 			if ord.TimeInForce != "" {
 				return ord.TimeInForce
 			}
-			return "FOK"
+			return "IOC"
 		}(),
 	}
 	if ord.ID != "" {
@@ -284,7 +288,9 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 	start := time.Now()
 	resp, err := a.http.Do(req)
 	if err != nil {
-		a.logger.Debug().Err(err).Str("method", http.MethodPost).Str("endpoint", endpoint).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", ord.Qty).Float64("price", ord.Price).Msg("http request failed")
+		qtyFloat, _ := ord.Qty.Float64()
+	priceFloat, _ := ord.Price.Float64()
+	a.logger.Debug().Err(err).Str("method", http.MethodPost).Str("endpoint", endpoint).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", qtyFloat).Float64("price", priceFloat).Msg("http request failed")
 		return "", err
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -296,7 +302,9 @@ func (a *Adapter) PlaceOrder(ctx context.Context, ord common.Order) (string, err
 		} `json:"result"`
 	}
 	decErr := json.NewDecoder(resp.Body).Decode(&r)
-	a.logger.Debug().Str("method", http.MethodPost).Str("endpoint", endpoint).Int("status", resp.StatusCode).Dur("latency", time.Since(start)).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", ord.Qty).Float64("price", ord.Price).Int("retCode", r.RetCode).Str("retMsg", r.RetMsg).Msg("bybit order create response")
+	qtyFloat, _ := ord.Qty.Float64()
+	priceFloat, _ := ord.Price.Float64()
+	a.logger.Debug().Str("method", http.MethodPost).Str("endpoint", endpoint).Int("status", resp.StatusCode).Dur("latency", time.Since(start)).Str("symbol", ord.Symbol).Str("side", side).Float64("qty", qtyFloat).Float64("price", priceFloat).Int("retCode", r.RetCode).Str("retMsg", r.RetMsg).Msg("bybit order create response")
 	if decErr != nil {
 		return "", decErr
 	}

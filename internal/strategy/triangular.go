@@ -29,8 +29,8 @@ func EvalTriangleForward(bidAB, bidBC, bidCA decimal.Decimal, feesPerLegBps, sli
     tenThousand := decimal.NewFromInt(10000)
     finalA := one.Mul(bidAB).Mul(bidBC).Mul(bidCA)
     grossBps = finalA.Sub(one).Mul(tenThousand)
-    fees := decimal.NewFromFloat(2.0).Mul(feesPerLegBps) // Aggressive maker fees
-    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.6)), riskReserveBps.Mul(decimal.NewFromFloat(0.3))) // More aggressive estimates
+    fees := decimal.NewFromFloat(1.5).Mul(feesPerLegBps) // Ultra aggressive maker fees
+    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.4)), riskReserveBps.Mul(decimal.NewFromFloat(0.2))) // Maximum aggressive estimates
     return grossBps, netBps
 }
 
@@ -46,7 +46,7 @@ func EvalTriangleReverse(askAB, bidBC, askCA decimal.Decimal, feesPerLegBps, sli
     tenThousand := decimal.NewFromInt(10000)
     finalA := one.Div(askCA).Mul(bidBC).Mul(one.Div(askAB))
     grossBps = finalA.Sub(one).Mul(tenThousand)
-    fees := decimal.NewFromFloat(2.0).Mul(feesPerLegBps) // Aggressive maker fees
-    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.6)), riskReserveBps.Mul(decimal.NewFromFloat(0.3))) // More aggressive estimates
+    fees := decimal.NewFromFloat(1.5).Mul(feesPerLegBps) // Ultra aggressive maker fees
+    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.4)), riskReserveBps.Mul(decimal.NewFromFloat(0.2))) // Maximum aggressive estimates
     return grossBps, netBps
 }

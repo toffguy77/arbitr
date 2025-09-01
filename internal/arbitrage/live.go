@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"arbitr/internal/config"
 	"arbitr/internal/exchange/common"
 	"arbitr/internal/infra/metrics"
@@ -57,7 +59,8 @@ func usdPriceOfAsset(ctx context.Context, by common.ExchangeAdapter, asset strin
 	if err != nil {
 		return 0, err
 	}
-	return tick.Bid, nil
+	bidFloat, _ := tick.Bid.Float64()
+	return bidFloat, nil
 }
 
 // executeTriangle places all three legs of the triangle in selected direction (F or R)
@@ -66,27 +69,29 @@ func usdPriceOfAsset(ctx context.Context, by common.ExchangeAdapter, asset strin
 func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter, tri config.Triangle, dir string, tAB, tBC, tCA common.Ticker, slipBps float64, netBps float64) error {
 	startDecision := time.Now()
 	// Determine base qty from config and balances
-	qtyUSD := e.cfg.Trading.MaxNotionalUSD
-	if qtyUSD <= 0 {
-		qtyUSD = e.cfg.Trading.NotionalUSD
+	qtyUSDFloat, _ := e.cfg.Trading.MaxNotionalUSD.Float64()
+	if qtyUSDFloat <= 0 {
+		qtyUSDFloat, _ = e.cfg.Trading.NotionalUSD.Float64()
 	}
-	if qtyUSD <= 0 {
-		qtyUSD = 50
+	if qtyUSDFloat <= 0 {
+		qtyUSDFloat = 50
 	}
 
-	// Adaptive sizing by edge: more edge -> more size - АГРЕССИВНО
+	// Adaptive sizing by edge: more edge -> more size - УЛЬТРА АГРЕССИВНО
 	edgeBps := netBps
-	mult := 1.5 // базовый множитель увеличен
+	mult := 2.0 // базовый множитель увеличен до 2x
 	if edgeBps > 0 {
-		mult = 1.5 + math.Min(edgeBps/5.0, 2.0) // до 3.5x вместо 2x
+		mult = 2.0 + math.Min(edgeBps/3.0, 3.0) // до 5x вместо 3.5x
 	}
 	// dynamic triangle quality factor
 	triKey := tri.AB + "|" + tri.BC + "|" + tri.CA
 	mult *= e.dynamicSizeFactor(triKey)
-	// Увеличиваем максимальный размер в 2 раза
-	qtyUSD = math.Min(qtyUSD*mult, e.cfg.Trading.MaxNotionalUSD*2.0)
+	// Увеличиваем максимальный размер в 3 раза
+	maxNotionalFloat, _ := e.cfg.Trading.MaxNotionalUSD.Float64()
+	qtyUSD := math.Min(qtyUSDFloat*mult, maxNotionalFloat*3.0)
 	if qtyUSD <= 0 {
-		qtyUSD = e.cfg.Trading.NotionalUSD
+		notionalFloat, _ := e.cfg.Trading.NotionalUSD.Float64()
+		qtyUSD = notionalFloat
 	}
 	if qtyUSD <= 0 {
 		qtyUSD = 50
@@ -95,13 +100,14 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 	// Side/price helpers
 	applySkew := func(price float64, isBuy bool) float64 {
 		baseSkewBps := e.cfg.Trading.PriceSkewBps
-		// Add adaptive skew up to +5 bps (увеличено с 2) based on netBps beyond threshold
+		// Add adaptive skew up to +8 bps для максимального исполнения
 		adapt := 0.0
-		if netBps > e.cfg.Trading.MinNetBps {
-			adapt = math.Min((netBps-e.cfg.Trading.MinNetBps)*1.0, 5.0) // 1.0x up to 5 bps
+		minNetBpsFloat, _ := e.cfg.Trading.MinNetBps.Float64()
+		if netBps > minNetBpsFloat {
+			adapt = math.Min((netBps-minNetBpsFloat)*1.5, 8.0) // 1.5x up to 8 bps
 		}
 		// Увеличиваем базовый скос для лучшего исполнения
-		skew := (baseSkewBps*1.5 + adapt) / 10000.0
+		skew := (baseSkewBps*2.0 + adapt) / 10000.0
 		if isBuy {
 			return price * (1 + skew)
 		}
@@ -117,7 +123,7 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 	// Prepare filters per symbol
 	getFilters := func(sym string) (qStep, pStep, minQty, minNotional float64) {
 		qStep, pStep = 0.000001, 0.0001
-		minQty, minNotional = 0, 0
+		minQty, minNotional = 0.0, 0.0
 		if fp, ok := by.(common.SymbolFiltersProvider); ok {
 			ctxS, cancelS := context.WithTimeout(ctx, 2*time.Second)
 			if qs, ps, mq, mn, ok2 := fp.GetSymbolFilters(ctxS, sym); ok2 {
@@ -144,17 +150,23 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 	switch dir {
 	case "F":
 		// sell A->B at AB bid, sell B->C at BC bid, sell C->A at CA bid (approx)
+		bidAB, _ := tAB.Bid.Float64()
+		bidBC, _ := tBC.Bid.Float64()
+		bidCA, _ := tCA.Bid.Float64()
 		legs = append(legs,
-			leg{sym: tri.AB, side: common.Sell, px: applySkew(tAB.Bid, false)},
-			leg{sym: tri.BC, side: common.Sell, px: applySkew(tBC.Bid, false)},
-			leg{sym: tri.CA, side: common.Sell, px: applySkew(tCA.Bid, false)},
+			leg{sym: tri.AB, side: common.Sell, px: applySkew(bidAB, false)},
+			leg{sym: tri.BC, side: common.Sell, px: applySkew(bidBC, false)},
+			leg{sym: tri.CA, side: common.Sell, px: applySkew(bidCA, false)},
 		)
 	default:
 		// Reverse: A->C buy CA (ask), C->B sell BC (bid), B->A buy AB (ask)
+		askCA, _ := tCA.Ask.Float64()
+		bidBC, _ := tBC.Bid.Float64()
+		askAB, _ := tAB.Ask.Float64()
 		legs = append(legs,
-			leg{sym: tri.CA, side: common.Buy, px: applySkew(tCA.Ask, true)},
-			leg{sym: tri.BC, side: common.Sell, px: applySkew(tBC.Bid, false)},
-			leg{sym: tri.AB, side: common.Buy, px: applySkew(tAB.Ask, true)},
+			leg{sym: tri.CA, side: common.Buy, px: applySkew(askCA, true)},
+			leg{sym: tri.BC, side: common.Sell, px: applySkew(bidBC, false)},
+			leg{sym: tri.AB, side: common.Buy, px: applySkew(askAB, true)},
 		)
 	}
 
@@ -233,8 +245,8 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 	}
 
 	// Submit first leg
-	ctx1, cancel1 := context.WithTimeout(ctx, 3*time.Second) // сокращен таймаут
-	id1, err := by.PlaceOrder(ctx1, common.Order{Symbol: first.sym, Side: first.side, Qty: qty, Price: first.px, TimeInForce: "FOK"}) // FOK вместо IOC
+	ctx1, cancel1 := context.WithTimeout(ctx, 1500*time.Millisecond) // ультра быстрый таймаут
+	id1, err := by.PlaceOrder(ctx1, common.Order{Symbol: first.sym, Side: first.side, Qty: decimal.NewFromFloat(qty), Price: decimal.NewFromFloat(first.px), TimeInForce: "IOC"}) // IOC для лучшего исполнения
 	metrics.ExecutionLatencyMs.Observe(float64(time.Since(startDecision).Milliseconds()))
 	cancel1()
 	if err != nil || id1 == "" {
@@ -289,8 +301,8 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 			}
 		}
 	}
-	ctx2, cancel2 := context.WithTimeout(ctx, 3*time.Second)
-	id2, err := by.PlaceOrder(ctx2, common.Order{Symbol: second.sym, Side: second.side, Qty: qty2, Price: second.px, TimeInForce: "FOK"})
+	ctx2, cancel2 := context.WithTimeout(ctx, 1200*time.Millisecond)
+	id2, err := by.PlaceOrder(ctx2, common.Order{Symbol: second.sym, Side: second.side, Qty: decimal.NewFromFloat(qty2), Price: decimal.NewFromFloat(second.px), TimeInForce: "IOC"})
 	cancel2()
 	var avg2, fee2 float64
 	if fi, ok := by.(common.OrderFillInfoQuerier); ok {
@@ -360,8 +372,8 @@ func (e *Engine) executeTriangle(ctx context.Context, by common.ExchangeAdapter,
 			}
 		}
 	}
-	ctx3, cancel3 := context.WithTimeout(ctx, 3*time.Second)
-	id3, err := by.PlaceOrder(ctx3, common.Order{Symbol: third.sym, Side: third.side, Qty: qty3, Price: third.px, TimeInForce: "FOK"})
+	ctx3, cancel3 := context.WithTimeout(ctx, 1000*time.Millisecond)
+	id3, err := by.PlaceOrder(ctx3, common.Order{Symbol: third.sym, Side: third.side, Qty: decimal.NewFromFloat(qty3), Price: decimal.NewFromFloat(third.px), TimeInForce: "IOC"})
 	cancel3()
 	var avg3, fee3 float64
 	if fi, ok := by.(common.OrderFillInfoQuerier); ok {
@@ -485,5 +497,5 @@ func (e *Engine) unwindPair(ctx context.Context, by common.ExchangeAdapter, symb
 	}
 	ctxU, cancelU := context.WithTimeout(ctx, time.Duration(ttl)*time.Millisecond)
 	defer cancelU()
-	_, _ = by.PlaceOrder(ctxU, common.Order{Symbol: symbol, Side: side, Qty: qty, Price: price, TimeInForce: "IOC"})
+	_, _ = by.PlaceOrder(ctxU, common.Order{Symbol: symbol, Side: side, Qty: decimal.NewFromFloat(qty), Price: decimal.NewFromFloat(price), TimeInForce: "IOC"})
 }

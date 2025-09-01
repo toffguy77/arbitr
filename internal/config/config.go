@@ -89,34 +89,39 @@ func defaultConfig() Config {
 	c.Trading.Enabled = true
 	c.Trading.Live = true
 	c.Trading.Pairs = []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "MATICUSDT", "DOTUSDT", "LINKUSDT"}
-	c.Trading.MinNetBps = decimal.NewFromFloat(0.3)
-	c.Trading.NotionalUSD = decimal.NewFromFloat(300.0)
-	c.Trading.MaxNotionalUSD = decimal.NewFromFloat(800.0)
+	c.Trading.MinNetBps = decimal.NewFromFloat(1.5)
+	c.Trading.NotionalUSD = decimal.NewFromFloat(20.0)
+	c.Trading.MaxNotionalUSD = decimal.NewFromFloat(50.0)
 	c.Trading.MaxOrdersPerMin = 100
 	c.Trading.AllowedSymbols = nil
-	c.Trading.FeesBps = map[string]float64{"bybit": 10.0}
-	c.Trading.SlippageBps = 1.0
-	c.Trading.RiskReserveBps = 0.5
-	c.Trading.PriceSkewBps = 1.0 // 0.01% default skew
+	c.Trading.FeesBps = map[string]float64{"bybit": 6.0}
+	c.Trading.SlippageBps = 2.0
+	c.Trading.RiskReserveBps = 1.0
+	c.Trading.PriceSkewBps = 1.0
 	c.Trading.EntryConfirmTicks = 0
-	c.Trading.TriangleCooldownSeconds = 1
+	c.Trading.TriangleCooldownSeconds = 0
 	c.Trading.DailyPnLStopUSD = 0.0
 	c.Trading.MaxInventoryUSDPerBase = 0.0
 	c.Trading.MaxUnwindSlippageBps = 10.0 // 0.10% max slippage for unwind
-	c.Trading.OrderTTLMs = 1500
-	c.Trading.MaxConcurrentTriangles = 1
+	c.Trading.OrderTTLMs = 2000
+	c.Trading.MaxConcurrentTriangles = 2
 	c.Trading.Triangles = []Triangle{
+		// BTC треугольники - самые ликвидные
 		{AB: "BTCUSDT", BC: "ETHUSDT", CA: "ETHBTC"},
-		{AB: "BTCUSDT", BC: "BNBUSDT", CA: "BNBBTC"},
 		{AB: "BTCUSDT", BC: "SOLUSDT", CA: "SOLBTC"},
 		{AB: "BTCUSDT", BC: "XRPUSDT", CA: "XRPBTC"},
 		{AB: "BTCUSDT", BC: "ADAUSDT", CA: "ADABTC"},
-		{AB: "BTCUSDT", BC: "DOGEUSDT", CA: "DOGEBTC"},
-		{AB: "BTCUSDT", BC: "LTCUSDT", CA: "LTCBTC"},
-		{AB: "BTCUSDT", BC: "TRXUSDT", CA: "TRXBTC"},
-		{AB: "BTCUSDT", BC: "MATICUSDT", CA: "MATICBTC"},
 		{AB: "BTCUSDT", BC: "DOTUSDT", CA: "DOTBTC"},
-		{AB: "BTCUSDT", BC: "LINKUSDT", CA: "LINKBTC"},
+		{AB: "BTCUSDT", BC: "LTCUSDT", CA: "LTCBTC"},
+		// ETH треугольники - высокая ликвидность
+		{AB: "ETHUSDT", BC: "SOLUSDT", CA: "SOLETH"},
+		{AB: "ETHUSDT", BC: "XRPUSDT", CA: "XRPETH"},
+		{AB: "ETHUSDT", BC: "ADAUSDT", CA: "ADAETH"},
+		{AB: "ETHUSDT", BC: "DOTUSDT", CA: "DOTETH"},
+		// USDT треугольники через популярные пары
+		{AB: "SOLUSDT", BC: "XRPUSDT", CA: "XRPSOL"},
+		{AB: "SOLUSDT", BC: "ADAUSDT", CA: "ADASOL"},
+		{AB: "XRPUSDT", BC: "ADAUSDT", CA: "ADAXRP"},
 	}
 	c.Exchanges.Bybit.BaseURL = "https://api.bybit.com"
 	c.Exchanges.Binance.BaseURL = "https://api.binance.com"
