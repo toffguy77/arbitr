@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/shopspring/decimal"
 
 	"arbitr/internal/config"
 	"arbitr/internal/exchange/common"
@@ -153,7 +154,7 @@ func (a *Adapter) GetTicker(ctx context.Context, symbol string) (common.Ticker, 
 		ask := bk.asks[0][0]
 		a.mu.RUnlock()
 		if bid > 0 && ask > 0 {
-			return common.Ticker{Bid: bid, Ask: ask}, nil
+			return common.Ticker{Bid: decimal.NewFromFloat(bid), Ask: decimal.NewFromFloat(ask)}, nil
 		}
 	} else {
 		a.mu.RUnlock()
@@ -563,7 +564,7 @@ func (a *Adapter) SubscribeSymbols(ctx context.Context, symbols []string) error 
 						}
 						if bid > 0 && ask > 0 {
 							a.mu.Lock()
-							a.tickers[sym] = common.Ticker{Bid: bid, Ask: ask}
+							a.tickers[sym] = common.Ticker{Bid: decimal.NewFromFloat(bid), Ask: decimal.NewFromFloat(ask)}
 							a.lastWS = time.Now()
 							a.mu.Unlock()
 						}
@@ -833,7 +834,7 @@ func (a *Adapter) GetBalances(ctx context.Context) ([]common.Balance, error) {
 			} else if it.WalletBalance != "" {
 				_, _ = fmt.Sscan(it.WalletBalance, &free)
 			}
-			out = append(out, common.Balance{Asset: strings.ToUpper(it.Coin), Free: free})
+			out = append(out, common.Balance{Asset: strings.ToUpper(it.Coin), Free: decimal.NewFromFloat(free)})
 		}
 	}
 	return out, nil

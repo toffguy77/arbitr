@@ -1,8 +1,11 @@
 package common
 
-import "context"
+import (
+	"context"
+	"github.com/shopspring/decimal"
+)
 
-type Ticker struct{ Bid, Ask float64 }
+type Ticker struct{ Bid, Ask decimal.Decimal }
 
 type OrderSide string
 const (
@@ -14,15 +17,15 @@ type Order struct {
 	ID          string // optional client order ID
 	Symbol      string
 	Side        OrderSide
-	Qty         float64
-	Price       float64
+	Qty         decimal.Decimal
+	Price       decimal.Decimal
 	TimeInForce string // optional: GTC, IOC, FOK
 }
 
 // Balance represents a simple asset balance on an exchange account (free funds available for trading)
 type Balance struct {
 	Asset string
-	Free  float64
+	Free  decimal.Decimal
 }
 
 type ExchangeAdapter interface {

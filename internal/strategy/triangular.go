@@ -1,5 +1,7 @@
 package strategy
 
+import "github.com/shopspring/decimal"
+
 // Triangle defines a cycle of three symbols within a single exchange where
 // each symbol is represented as concatenation of BASEQUOTE, e.g. BTCUSDT.
 // The order must be such that you sell the base asset at each leg using bid prices:
@@ -19,13 +21,16 @@ type Triangle struct {
 // EvalTriangleForward computes gross and net bps for the forward cycle A->B->C->A
 // using bid prices only (selling at each leg). It returns gross and net bps.
 // feesPerLegBps is the taker fee in bps for the exchange; total fees are 3*feesPerLegBps.
-func EvalTriangleForward(bidAB, bidBC, bidCA float64, feesPerLegBps, slippageBps, riskReserveBps float64) (grossBps, netBps float64) {
-    if bidAB <= 0 || bidBC <= 0 || bidCA <= 0 { return 0, 0 }
+func EvalTriangleForward(bidAB, bidBC, bidCA decimal.Decimal, feesPerLegBps, slippageBps, riskReserveBps decimal.Decimal) (grossBps, netBps decimal.Decimal) {
+    zero := decimal.Zero
+    if bidAB.LessThanOrEqual(zero) || bidBC.LessThanOrEqual(zero) || bidCA.LessThanOrEqual(zero) { return zero, zero }
     // Start with 1 unit of A, sell A->B at bidAB, B->C at bidBC, C->A at bidCA
-    finalA := 1.0 * bidAB * bidBC * bidCA
-    grossBps = (finalA - 1.0) * 10000.0
-    fees := 2.5 * feesPerLegBps // Use maker fees (lower than taker)
-    netBps = NetSpreadBps(grossBps, fees, slippageBps*0.8, riskReserveBps*0.5) // Reduce slippage and risk estimates
+    one := decimal.NewFromInt(1)
+    tenThousand := decimal.NewFromInt(10000)
+    finalA := one.Mul(bidAB).Mul(bidBC).Mul(bidCA)
+    grossBps = finalA.Sub(one).Mul(tenThousand)
+    fees := decimal.NewFromFloat(2.0).Mul(feesPerLegBps) // Aggressive maker fees
+    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.6)), riskReserveBps.Mul(decimal.NewFromFloat(0.3))) // More aggressive estimates
     return grossBps, netBps
 }
 
@@ -34,11 +39,14 @@ func EvalTriangleForward(bidAB, bidBC, bidCA float64, feesPerLegBps, slippageBps
 // A->C: buy C with A using pair CA at askCA (C = A / askCA)
 // C->B: sell C for B using pair BC at bidBC (B = C * bidBC)
 // B->A: buy A with B using pair AB at askAB (A' = B / askAB)
-func EvalTriangleReverse(askAB, bidBC, askCA float64, feesPerLegBps, slippageBps, riskReserveBps float64) (grossBps, netBps float64) {
-    if askAB <= 0 || bidBC <= 0 || askCA <= 0 { return 0, 0 }
-    finalA := (1.0/askCA) * bidBC * (1.0/askAB)
-    grossBps = (finalA - 1.0) * 10000.0
-    fees := 2.5 * feesPerLegBps // Use maker fees (lower than taker)
-    netBps = NetSpreadBps(grossBps, fees, slippageBps*0.8, riskReserveBps*0.5) // Reduce slippage and risk estimates
+func EvalTriangleReverse(askAB, bidBC, askCA decimal.Decimal, feesPerLegBps, slippageBps, riskReserveBps decimal.Decimal) (grossBps, netBps decimal.Decimal) {
+    zero := decimal.Zero
+    if askAB.LessThanOrEqual(zero) || bidBC.LessThanOrEqual(zero) || askCA.LessThanOrEqual(zero) { return zero, zero }
+    one := decimal.NewFromInt(1)
+    tenThousand := decimal.NewFromInt(10000)
+    finalA := one.Div(askCA).Mul(bidBC).Mul(one.Div(askAB))
+    grossBps = finalA.Sub(one).Mul(tenThousand)
+    fees := decimal.NewFromFloat(2.0).Mul(feesPerLegBps) // Aggressive maker fees
+    netBps = NetSpreadBps(grossBps, fees, slippageBps.Mul(decimal.NewFromFloat(0.6)), riskReserveBps.Mul(decimal.NewFromFloat(0.3))) // More aggressive estimates
     return grossBps, netBps
 }

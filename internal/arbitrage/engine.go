@@ -361,18 +361,25 @@ func (e *Engine) Run(ctx context.Context) error {
 						e.mu.Unlock()
 						return
 					}
-					// dynamic threshold per triangle
+					// dynamic threshold per triangle - АГРЕССИВНО СНИЖЕН
 					minBps := e.dynamicMinNetBps(key)
+					// Снижаем порог в 3 раза для большего количества сделок
+					minBps = minBps / 3.0
+					if minBps < 1.0 {
+						minBps = 1.0 // минимум 1 bps
+					}
 					if net >= minBps {
 						e.consec[key]++
 					} else {
 						e.consec[key] = 0
 					}
-					if until, ok := e.cooldown[key]; ok && time.Now().Before(until) {
-						e.mu.Unlock()
-						return
-					}
-					okConfirm := !(e.cfg.Trading.EntryConfirmTicks > 0 && e.consec[key] < e.cfg.Trading.EntryConfirmTicks)
+					// Убираем кулдауны для агрессивной торговли
+					// if until, ok := e.cooldown[key]; ok && time.Now().Before(until) {
+					// 	e.mu.Unlock()
+					// 	return
+					// }
+					// Убираем подтверждение тиков
+					okConfirm := true // всегда разрешаем
 					e.mu.Unlock()
 					if !okConfirm {
 						return
@@ -421,11 +428,12 @@ if err := e.executeTriangle(ctx, by, tri, dir, tAB, tBC, tCA, slipUse, net); err
 								metrics.TrianglesOutcomeTotal.WithLabelValues(triKey, "success").Inc()
 								// update stats (no partial info here)
 								e.updateTriStats(key, net, true, false)
-								if e.cfg.Trading.TriangleCooldownSeconds > 0 {
-									e.mu.Lock()
-									e.cooldown[key] = time.Now().Add(time.Duration(e.cfg.Trading.TriangleCooldownSeconds) * time.Second)
-									e.mu.Unlock()
-								}
+								// Убираем кулдаун после успешных сделок - торгуем непрерывно
+								// if e.cfg.Trading.TriangleCooldownSeconds > 0 {
+								// 	e.mu.Lock()
+								// 	e.cooldown[key] = time.Now().Add(time.Duration(e.cfg.Trading.TriangleCooldownSeconds) * time.Second)
+								// 	e.mu.Unlock()
+								// }
 							}
 						}
 						select {
@@ -489,57 +497,62 @@ func max(a, b int) int {
 }
 
 // dynamicMinNetBps computes per-triangle threshold based on EMA and success ratio
+// АГРЕССИВНО СНИЖЕН для максимального заработка
 func (e *Engine) dynamicMinNetBps(key string) float64 {
 	base := e.cfg.Trading.MinNetBps
 	e.mu.Lock()
 	st := e.triStats[key]
 	e.mu.Unlock()
-	if st == nil || st.count < 5 {
-		return base
+	if st == nil || st.count < 3 { // снижен с 5 до 3
+		return base * 0.5 // снижаем базовый порог в 2 раза
 	}
 	ratio := 0.0
 	if st.count > 0 {
 		ratio = float64(st.success) / float64(st.count)
 	}
 	bump := 0.0
-	// if success ratio < 50%, add up to +5 bps
-	if ratio < 0.5 {
-		bump += (0.5 - ratio) * 10.0
+	// if success ratio < 30% (снижен с 50%), add up to +2 bps (снижен с 5)
+	if ratio < 0.3 {
+		bump += (0.3 - ratio) * 5.0
 	}
-	if bump > 5.0 {
-		bump = 5.0
+	if bump > 2.0 { // снижен с 5.0
+		bump = 2.0
 	}
-	// if EMA below base, add half the gap, capped
+	// if EMA below base, add quarter the gap (снижен с половины)
 	if st.emaNet < base {
-		bump += (base - st.emaNet) * 0.5
+		bump += (base - st.emaNet) * 0.25
 	}
-	if bump > 10.0 {
-		bump = 10.0
+	if bump > 3.0 { // снижен с 10.0
+		bump = 3.0
 	}
-	out := base + bump
+	out := (base * 0.7) + bump // снижаем базу на 30%
+	if out < 1.0 {
+		out = 1.0 // минимум 1 bps
+	}
 	return out
 }
 
-// dynamicSizeFactor returns [0.3,1.0] based on success ratio and EMA
+// dynamicSizeFactor returns [0.5,1.5] based on success ratio and EMA
+// Увеличено для большего заработка
 func (e *Engine) dynamicSizeFactor(key string) float64 {
 	e.mu.Lock()
 	st := e.triStats[key]
 	e.mu.Unlock()
-	if st == nil || st.count < 10 {
-		return 0.6
+	if st == nil || st.count < 5 { // снижен с 10
+		return 0.8 // увеличен с 0.6
 	}
 	ratio := float64(st.success) / float64(st.count)
-	// base on success ratio
-	f := 0.3 + 0.7*ratio // if ratio=1 -> 1.0; ratio=0 -> 0.3
-	// adjust down if EMA below global threshold
-	if st.emaNet < e.cfg.Trading.MinNetBps {
-		f *= 0.8
+	// base on success ratio - более агрессивно
+	f := 0.5 + 1.0*ratio // if ratio=1 -> 1.5; ratio=0 -> 0.5
+	// Не снижаем размер если EMA ниже порога
+	// if st.emaNet < e.cfg.Trading.MinNetBps {
+	// 	f *= 0.8
+	// }
+	if f < 0.5 {
+		f = 0.5
 	}
-	if f < 0.3 {
-		f = 0.3
-	}
-	if f > 1.0 {
-		f = 1.0
+	if f > 1.5 { // разрешаем до 150%
+		f = 1.5
 	}
 	return f
 }

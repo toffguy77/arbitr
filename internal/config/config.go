@@ -1,9 +1,12 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strings"
 
+	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v3"
 )
 
@@ -28,9 +31,9 @@ type Config struct {
 		Enabled                 bool               `yaml:"enabled"`
 		Live                    bool               `yaml:"live"`
 		Pairs                   []string           `yaml:"pairs"`
-		MinNetBps               float64            `yaml:"min_net_bps"`
-		NotionalUSD             float64            `yaml:"notional_usd"`
-		MaxNotionalUSD          float64            `yaml:"max_notional_usd"`
+		MinNetBps               decimal.Decimal    `yaml:"min_net_bps"`
+		NotionalUSD             decimal.Decimal    `yaml:"notional_usd"`
+		MaxNotionalUSD          decimal.Decimal    `yaml:"max_notional_usd"`
 		MaxOrdersPerMin         int                `yaml:"max_orders_per_min"`
 		AllowedSymbols          []string           `yaml:"allowed_symbols"`
 		FeesBps                 map[string]float64 `yaml:"fees_bps"`
@@ -86,9 +89,9 @@ func defaultConfig() Config {
 	c.Trading.Enabled = true
 	c.Trading.Live = true
 	c.Trading.Pairs = []string{"BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "LTCUSDT", "TRXUSDT", "MATICUSDT", "DOTUSDT", "LINKUSDT"}
-	c.Trading.MinNetBps = 0.5
-	c.Trading.NotionalUSD = 200.0
-	c.Trading.MaxNotionalUSD = 500.0
+	c.Trading.MinNetBps = decimal.NewFromFloat(0.3)
+	c.Trading.NotionalUSD = decimal.NewFromFloat(300.0)
+	c.Trading.MaxNotionalUSD = decimal.NewFromFloat(800.0)
 	c.Trading.MaxOrdersPerMin = 100
 	c.Trading.AllowedSymbols = nil
 	c.Trading.FeesBps = map[string]float64{"bybit": 10.0}
@@ -123,6 +126,8 @@ func defaultConfig() Config {
 
 func Load() Config {
 	c := defaultConfig()
+	// Load .env file first
+	loadEnvFile(".env")
 	if path := os.Getenv("ARBITR_CONFIG"); path != "" {
 		if b, err := os.ReadFile(path); err == nil {
 			_ = yaml.Unmarshal(b, &c)
@@ -153,10 +158,8 @@ func Load() Config {
 		c.Trading.Pairs = splitCSV(v)
 	}
 	if v := os.Getenv("ARBITR_MAX_NOTIONAL_USD"); v != "" {
-		var f float64
-		_, _ = fmt.Sscan(v, &f)
-		if f > 0 {
-			c.Trading.MaxNotionalUSD = f
+		if d, err := decimal.NewFromString(v); err == nil && d.IsPositive() {
+			c.Trading.MaxNotionalUSD = d
 		}
 	}
 	if v := os.Getenv("ARBITR_MAX_ORDERS_PER_MIN"); v != "" {
@@ -199,10 +202,61 @@ func Load() Config {
 	}
 	if v := os.Getenv("ARBITR_PRICE_SKEW_BPS"); v != "" {
 		var f float64
-		_, _ = fmt.Sscan(v,
-			&f)
+		_, _ = fmt.Sscan(v, &f)
 		if f >= 0 {
 			c.Trading.PriceSkewBps = f
+		}
+	}
+	if v := os.Getenv("ARBITR_MIN_NET_BPS"); v != "" {
+		if d, err := decimal.NewFromString(v); err == nil && d.IsPositive() {
+			c.Trading.MinNetBps = d
+		}
+	}
+	if v := os.Getenv("ARBITR_NOTIONAL_USD"); v != "" {
+		if d, err := decimal.NewFromString(v); err == nil && d.IsPositive() {
+			c.Trading.NotionalUSD = d
+		}
+	}
+	if v := os.Getenv("ARBITR_SLIPPAGE_BPS"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.SlippageBps = f
+		}
+	}
+	if v := os.Getenv("ARBITR_FEES_BPS_BYBIT"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.FeesBps["bybit"] = f
+		}
+	}
+	if v := os.Getenv("ARBITR_RISK_RESERVE_BPS"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.RiskReserveBps = f
+		}
+	}
+	if v := os.Getenv("ARBITR_ORDER_TTL_MS"); v != "" {
+		var n int
+		_, _ = fmt.Sscan(v, &n)
+		if n > 0 {
+			c.Trading.OrderTTLMs = n
+		}
+	}
+	if v := os.Getenv("ARBITR_MAX_CONCURRENT_TRIANGLES"); v != "" {
+		var n int
+		_, _ = fmt.Sscan(v, &n)
+		if n > 0 {
+			c.Trading.MaxConcurrentTriangles = n
+		}
+	}
+	if v := os.Getenv("ARBITR_MAX_UNWIND_SLIPPAGE_BPS"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 {
+			c.Trading.MaxUnwindSlippageBps = f
 		}
 	}
 	// API keys only from env
@@ -237,4 +291,25 @@ func splitCSV(s string) []string {
 		out = append(out, string(buf))
 	}
 	return out
+}
+
+// loadEnvFile loads environment variables from .env file
+func loadEnvFile(filename string) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			os.Setenv(parts[0], parts[1])
+		}
+	}
 }
