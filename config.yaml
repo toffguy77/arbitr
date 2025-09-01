@@ -1,0 +1,50 @@
+network:
+  region: EU-West
+  ws_keepalive_seconds: 15
+logging:
+  level: debug
+  pretty: true
+server:
+  addr: ":19091"
+  pprof: false
+  read_timeout_seconds: 5
+  write_timeout_seconds: 10
+  idle_timeout_seconds: 60
+  admin_allow_cidrs:
+    - 127.0.0.0/8
+    - ::1/128
+
+trading:
+  enabled: true
+  live: true
+  pairs: [BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, LTCUSDT, DOTUSDT, ALGOUSDT, MANAUSDT, MNTUSDT, SANDUSDT, WBTCUSDT, XLMUSDT, ETHBTC, SOLBTC, XRPBTC, LTCBTC, DOTBTC, ALGOBTC, MANABTC, MNTBTC, SANDBTC, WBTCBTC, XLMBTC]
+  min_net_bps: 0.5
+  notional_usd: 200
+  max_notional_usd: 500
+  max_orders_per_min: 100
+  allowed_symbols: []
+  fees_bps:
+    bybit: 10
+  slippage_bps: 1
+  risk_reserve_bps: 0.25
+  price_skew_bps: 2.0
+  entry_confirm_ticks: 0
+  triangle_cooldown_seconds: 1
+  daily_pnl_stop_usd: 15
+  max_inventory_usd_per_base: 200
+  max_unwind_slippage_bps: 15
+  order_ttl_ms: 2500
+  max_concurrent_triangles: 2
+  # Triangles must be valid markets on Bybit spot. Below are commonly liquid examples; adjust to real availability on Bybit.
+  triangles:
+    - { AB: BTCUSDT, BC: ETHUSDT,   CA: ETHBTC }
+    - { AB: BTCUSDT, BC: SOLUSDT,   CA: SOLBTC }
+    - { AB: BTCUSDT, BC: XRPUSDT,   CA: XRPBTC }
+    - { AB: BTCUSDT, BC: LTCUSDT,   CA: LTCBTC }
+    - { AB: BTCUSDT, BC: DOTUSDT,   CA: DOTBTC }
+    - { AB: BTCUSDT, BC: ALGOUSDT,  CA: ALGOBTC }
+    - { AB: BTCUSDT, BC: MANAUSDT,  CA: MANABTC }
+    - { AB: BTCUSDT, BC: MNTUSDT,   CA: MNTBTC }
+    - { AB: BTCUSDT, BC: SANDUSDT,  CA: SANDBTC }
+    - { AB: BTCUSDT, BC: WBTCUSDT,  CA: WBTCBTC }
+    - { AB: BTCUSDT, BC: XLMUSDT,   CA: XLMBTC }
