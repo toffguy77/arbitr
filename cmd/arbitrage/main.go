@@ -16,6 +16,7 @@ import (
 	"arbitr/internal/exchange/bybit"
 	"arbitr/internal/exchange/okx"
 	"arbitr/internal/exchange/mexc"
+	"arbitr/internal/exchange/binance"
 	"arbitr/internal/exchange/common"
 	"arbitr/internal/infra/health"
 	"arbitr/internal/infra/http/middleware"
@@ -80,7 +81,12 @@ func main() {
 		adapters["bybit"] = bybit.New(cfg, logger)
 		adapters["okx"] = okx.New(cfg, logger)
 		adapters["mexc"] = mexc.New(cfg, logger)
+		adapters["binance"] = binance.New(cfg)
 		eng := arbitrage.New(cfg, adapters, logger)
+		// log which exchanges are enabled
+		names := make([]string, 0, len(adapters))
+		for k := range adapters { names = append(names, k) }
+		logger.Info().Strs("exchanges", names).Msg("adapters initialized")
 		return eng.Run(ctx)
 	})
 

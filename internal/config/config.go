@@ -105,7 +105,7 @@ func defaultConfig() Config {
 	c.Trading.MaxNotionalUSD = decimal.NewFromFloat(50.0)
 	c.Trading.MaxOrdersPerMin = 100
 	c.Trading.AllowedSymbols = nil
-	c.Trading.FeesBps = map[string]float64{"bybit": 6.0, "okx": 8.0, "mexc": 10.0}
+	c.Trading.FeesBps = map[string]float64{"bybit": 6.0, "okx": 8.0, "mexc": 10.0, "binance": 10.0}
 	c.Trading.SlippageBps = 2.0
 	c.Trading.RiskReserveBps = 1.0
 	c.Trading.PriceSkewBps = 1.0
@@ -301,6 +301,13 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_MEXC_SECRET"); v != "" {
 		c.Exchanges.Mexc.Secret = v
 	}
+	// Binance
+	if v := os.Getenv("ARBITR_BINANCE_API_KEY"); v != "" {
+		c.Exchanges.Binance.APIKey = v
+	}
+	if v := os.Getenv("ARBITR_BINANCE_SECRET"); v != "" {
+		c.Exchanges.Binance.Secret = v
+	}
 	// Allow overriding base URLs via env
 	if v := os.Getenv("ARBITR_BYBIT_BASE_URL"); v != "" {
 		c.Exchanges.Bybit.BaseURL = v
@@ -310,6 +317,9 @@ func Load() Config {
 	}
 	if v := os.Getenv("ARBITR_MEXC_BASE_URL"); v != "" {
 		c.Exchanges.Mexc.BaseURL = v
+	}
+	if v := os.Getenv("ARBITR_BINANCE_BASE_URL"); v != "" {
+		c.Exchanges.Binance.BaseURL = v
 	}
 	// Triangles via YAML only for now; could add ARBITR_TRADING_TRIANGLES as a CSV of AB|BC|CA items later.
 	return c

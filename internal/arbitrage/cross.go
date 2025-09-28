@@ -65,6 +65,8 @@ func (e *Engine) scanCrossTick(ctx context.Context) {
 			baseThreshold, _ := e.cfg.Trading.MinNetBps.Float64()
 			if net < baseThreshold { return }
 			metrics.CrossOppsFound.Inc()
+			// log candidate before execution for visibility
+			e.logger.Info().Str("pair", jb.sym).Str("buy_ex", buy.Name()).Str("sell_ex", sell.Name()).Float64("ask", ask).Float64("bid", bid).Float64("net_bps", net).Msg("cross opportunity")
 			// execute
 			if e.tryExecuteCross(ctx, buy, sell, jb.sym, ask, bid, net) {
 				metrics.CrossOppsExecuted.Inc()
