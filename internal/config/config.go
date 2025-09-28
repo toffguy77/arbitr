@@ -245,9 +245,22 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_FEES_BPS_BYBIT"); v != "" {
 		var f float64
 		_, _ = fmt.Sscan(v, &f)
-		if f >= 0 {
-			c.Trading.FeesBps["bybit"] = f
-		}
+		if f >= 0 { c.Trading.FeesBps["bybit"] = f }
+	}
+	if v := os.Getenv("ARBITR_FEES_BPS_OKX"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 { c.Trading.FeesBps["okx"] = f }
+	}
+	if v := os.Getenv("ARBITR_FEES_BPS_MEXC"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 { c.Trading.FeesBps["mexc"] = f }
+	}
+	if v := os.Getenv("ARBITR_FEES_BPS_BINANCE"); v != "" {
+		var f float64
+		_, _ = fmt.Sscan(v, &f)
+		if f >= 0 { c.Trading.FeesBps["binance"] = f }
 	}
 	if v := os.Getenv("ARBITR_RISK_RESERVE_BPS"); v != "" {
 		var f float64
