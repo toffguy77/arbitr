@@ -14,6 +14,8 @@ import (
 	"arbitr/internal/config"
 	"arbitr/internal/arbitrage"
 	"arbitr/internal/exchange/bybit"
+	"arbitr/internal/exchange/okx"
+	"arbitr/internal/exchange/mexc"
 	"arbitr/internal/exchange/common"
 	"arbitr/internal/infra/health"
 	"arbitr/internal/infra/http/middleware"
@@ -76,6 +78,8 @@ func main() {
 	workerErrCh := g.Go(ctx, func(ctx context.Context) error {
 		adapters := map[string]common.ExchangeAdapter{}
 		adapters["bybit"] = bybit.New(cfg, logger)
+		adapters["okx"] = okx.New(cfg, logger)
+		adapters["mexc"] = mexc.New(cfg, logger)
 		eng := arbitrage.New(cfg, adapters, logger)
 		return eng.Run(ctx)
 	})

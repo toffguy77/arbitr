@@ -65,6 +65,17 @@ type Config struct {
 			APIKey  string `yaml:"api_key"`
 			Secret  string `yaml:"secret"`
 		} `yaml:"kraken"`
+		Okx struct {
+			BaseURL    string `yaml:"base_url"`
+			APIKey     string `yaml:"api_key"`
+			Secret     string `yaml:"secret"`
+			Passphrase string `yaml:"passphrase"`
+		} `yaml:"okx"`
+		Mexc struct {
+			BaseURL string `yaml:"base_url"`
+			APIKey  string `yaml:"api_key"`
+			Secret  string `yaml:"secret"`
+		} `yaml:"mexc"`
 	} `yaml:"exchanges"`
 }
 
@@ -94,7 +105,7 @@ func defaultConfig() Config {
 	c.Trading.MaxNotionalUSD = decimal.NewFromFloat(50.0)
 	c.Trading.MaxOrdersPerMin = 100
 	c.Trading.AllowedSymbols = nil
-	c.Trading.FeesBps = map[string]float64{"bybit": 6.0}
+	c.Trading.FeesBps = map[string]float64{"bybit": 6.0, "okx": 8.0, "mexc": 10.0}
 	c.Trading.SlippageBps = 2.0
 	c.Trading.RiskReserveBps = 1.0
 	c.Trading.PriceSkewBps = 1.0
@@ -126,6 +137,8 @@ func defaultConfig() Config {
 	c.Exchanges.Bybit.BaseURL = "https://api.bybit.com"
 	c.Exchanges.Binance.BaseURL = "https://api.binance.com"
 	c.Exchanges.Kraken.BaseURL = "https://api.kraken.com"
+	c.Exchanges.Okx.BaseURL = "https://www.okx.com"
+	c.Exchanges.Mexc.BaseURL = "https://api.mexc.com"
 	return c
 }
 
@@ -271,9 +284,32 @@ func Load() Config {
 	if v := os.Getenv("ARBITR_BYBIT_SECRET"); v != "" {
 		c.Exchanges.Bybit.Secret = v
 	}
-	// Allow overriding Bybit base URL via env to switch between testnet and mainnet easily
+	// OKX
+	if v := os.Getenv("ARBITR_OKX_API_KEY"); v != "" {
+		c.Exchanges.Okx.APIKey = v
+	}
+	if v := os.Getenv("ARBITR_OKX_SECRET"); v != "" {
+		c.Exchanges.Okx.Secret = v
+	}
+	if v := os.Getenv("ARBITR_OKX_PASSPHRASE"); v != "" {
+		c.Exchanges.Okx.Passphrase = v
+	}
+	// MEXC
+	if v := os.Getenv("ARBITR_MEXC_API_KEY"); v != "" {
+		c.Exchanges.Mexc.APIKey = v
+	}
+	if v := os.Getenv("ARBITR_MEXC_SECRET"); v != "" {
+		c.Exchanges.Mexc.Secret = v
+	}
+	// Allow overriding base URLs via env
 	if v := os.Getenv("ARBITR_BYBIT_BASE_URL"); v != "" {
 		c.Exchanges.Bybit.BaseURL = v
+	}
+	if v := os.Getenv("ARBITR_OKX_BASE_URL"); v != "" {
+		c.Exchanges.Okx.BaseURL = v
+	}
+	if v := os.Getenv("ARBITR_MEXC_BASE_URL"); v != "" {
+		c.Exchanges.Mexc.BaseURL = v
 	}
 	// Triangles via YAML only for now; could add ARBITR_TRADING_TRIANGLES as a CSV of AB|BC|CA items later.
 	return c

@@ -22,6 +22,12 @@ var (
 	APIErrorsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "api_errors_total", Help: "API errors by exchange and endpoint"}, []string{"exchange","endpoint"})
 	TriangleGrossBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_gross_bps", Help: "Gross bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
 	TriangleNetBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "triangle_net_bps", Help: "Net bps per triangle eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
+	// Cross-exchange metrics
+	CrossOppsFound = prometheus.NewCounter(prometheus.CounterOpts{Name: "cross_opportunities_found"})
+	CrossOppsExecuted = prometheus.NewCounter(prometheus.CounterOpts{Name: "cross_opportunities_executed"})
+	CrossGrossBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "cross_gross_bps", Help: "Gross bps per cross-exchange eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
+	CrossNetBps = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "cross_net_bps", Help: "Net bps per cross-exchange eval", Buckets: prometheus.LinearBuckets(-50, 5, 41)})
+
 	FillsSuccessRatio = prometheus.NewGauge(prometheus.GaugeOpts{Name: "fills_success_ratio"})
 	PartialFillRatio = prometheus.NewGauge(prometheus.GaugeOpts{Name: "partial_fill_ratio"})
 	NetProfitBps = prometheus.NewGauge(prometheus.GaugeOpts{Name: "net_profit_bps"})
@@ -71,6 +77,8 @@ toRegister := []prometheus.Collector{
 		DecisionLatencyMs, OrderSubmitLatencyMs, ArbOppsFound, ArbOppsExecuted,
 TrianglesCheckedTotal, TrianglesAttemptedTotal, OrdersSubmittedTotal, OrdersCancelledTotal, OrdersFilledTotal, APIErrorsTotal,
 		TriangleGrossBps, TriangleNetBps,
+		// Cross metrics
+		CrossOppsFound, CrossOppsExecuted, CrossGrossBps, CrossNetBps,
 		FillsSuccessRatio, PartialFillRatio, NetProfitBps, NetProfitUSD,
 		GrossSpreadBps, RejectedOrders, WSReconnects, RiskBlocks,
 		BalanceDesyncEvents, SlippageRealizedBps, VaR99Intraday, DrawdownIntradayBps,

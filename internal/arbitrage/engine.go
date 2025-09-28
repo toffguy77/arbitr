@@ -456,6 +456,9 @@ if err := e.executeTriangle(ctx, by, tri, dir, tAB, tBC, tCA, slipUse, net); err
 				}()
 			}
 			wg.Wait()
+
+			// Cross-exchange scan (buy on one exchange, sell on another)
+			e.scanCrossTick(ctx)
 		}
 	}
 }
