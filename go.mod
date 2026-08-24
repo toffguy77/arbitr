@@ -3,7 +3,7 @@ module arbitr
 go 1.21
 
 require (
-	github.com/gorilla/websocket v1.5.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/prometheus/client_golang v1.17.0
 	github.com/rs/zerolog v1.34.0
 	github.com/shopspring/decimal v1.3.1
